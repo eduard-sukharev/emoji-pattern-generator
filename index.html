@@ -1,0 +1,2143 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Print Pattern Generator</title>
+<!--
+  Шрифты для текстового слоя. Загружаются с Google Fonts — нужен интернет; если его нет,
+  браузер тихо откатится на системный fallback-шрифт того же <select>-пункта (cursive/serif/…),
+  само приложение при этом продолжает работать полностью офлайн для всего остального.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lobster&family=Lobster+Two:ital,wght@0,400;0,700;1,400;1,700&family=Luckiest+Guy&family=Bangers&family=Alfa+Slab+One&family=Rye&family=Bungee&family=Bungee+Inline&family=Titan+One&family=Chewy&family=Fredoka:wght@400;600;700&display=swap">
+<style>
+/* ============================== СТИЛИ ============================== */
+:root{
+  --bg:#14161a; --panel:#1c1f26; --panel-2:#232732; --line:#2f3442;
+  --fg:#e6e9ef; --fg-dim:#9aa3b2; --accent:#5b9dff; --accent-2:#2f6fd0;
+  --warn:#ffb454; --err:#ff6b6b; --ok:#57d18a;
+  --radius:8px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  overflow:hidden;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+
+/* --- каркас --- */
+#app{display:flex;height:100vh}
+#sidebar{
+  width:340px;min-width:340px;height:100%;overflow-y:auto;overflow-x:hidden;
+  background:var(--panel);border-right:1px solid var(--line);
+}
+#stage{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:20px;min-width:0;
+  background:
+    linear-gradient(45deg,#1a1d23 25%,transparent 25%,transparent 75%,#1a1d23 75%),
+    linear-gradient(45deg,#1a1d23 25%,#191b21 25%,#191b21 75%,#1a1d23 75%);
+  background-size:24px 24px;background-position:0 0,12px 12px;
+}
+
+/* --- заголовок --- */
+.brand{padding:14px 16px;border-bottom:1px solid var(--line)}
+.brand h1{margin:0;font-size:14px;font-weight:600;letter-spacing:.02em}
+.brand p{margin:3px 0 0;font-size:11px;color:var(--fg-dim)}
+
+/* --- секции --- */
+details.sec{border-bottom:1px solid var(--line)}
+details.sec>summary{
+  padding:10px 16px;cursor:pointer;font-weight:600;font-size:12px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--fg-dim);
+  user-select:none;list-style:none;display:flex;align-items:center;gap:6px;
+}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::before{content:"▸";font-size:10px;transition:transform .12s}
+details.sec[open]>summary::before{transform:rotate(90deg)}
+details.sec>summary:hover{color:var(--fg)}
+.sec-body{padding:4px 16px 14px}
+
+/* --- поля --- */
+.row{display:flex;align-items:center;gap:8px;margin:8px 0}
+.row>label{flex:0 0 108px;color:var(--fg-dim);font-size:12px}
+.row>.ctl{flex:1;display:flex;align-items:center;gap:6px;min-width:0}
+input[type=text],input[type=number],select,textarea{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:6px;
+  padding:5px 7px;width:100%;min-width:0;outline:none;
+}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent)}
+input[type=number]{-moz-appearance:textfield}
+input[type=range]{flex:1;min-width:0;accent-color:var(--accent);background:transparent}
+.num{flex:0 0 62px}
+input[type=color]{
+  width:34px;height:26px;padding:0;border:1px solid var(--line);
+  border-radius:6px;background:var(--panel-2);cursor:pointer;flex:0 0 auto;
+}
+input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+label.chk{display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--fg);flex:1}
+
+button{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:6px;
+  padding:6px 10px;cursor:pointer;white-space:nowrap;
+}
+button:hover{border-color:var(--accent);color:#fff}
+button:active{transform:translateY(1px)}
+button.primary{background:var(--accent-2);border-color:var(--accent-2);color:#fff;font-weight:600}
+button.primary:hover{background:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-row{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}
+.btn-row button{flex:1}
+
+.hint{font-size:11px;color:var(--fg-dim);margin:6px 0 0;line-height:1.4}
+.hint.warn{color:var(--warn)}
+.hint.err{color:var(--err)}
+.hint.ok{color:var(--ok)}
+.sub{margin-left:116px}
+
+/* --- список иконок --- */
+#iconGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px;margin:8px 0}
+.icon-cell{
+  position:relative;aspect-ratio:1;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:6px;display:flex;align-items:center;justify-content:center;padding:6px;
+  cursor:pointer;overflow:hidden;
+}
+.icon-cell img{max-width:100%;max-height:100%;display:block}
+.icon-cell.emoji{font-size:26px;line-height:1}
+.icon-cell.off{opacity:.3}
+.icon-cell.tainted{border-color:var(--err)}
+.icon-cell .del{
+  position:absolute;top:1px;right:2px;font-size:11px;line-height:1;color:var(--fg-dim);
+  background:rgba(0,0,0,.55);border-radius:4px;padding:1px 3px;display:none;
+}
+.icon-cell:hover .del{display:block}
+.icon-cell .del:hover{color:var(--err)}
+.icon-cell .badge{
+  position:absolute;bottom:1px;left:2px;font-size:9px;color:var(--fg-dim);
+  background:rgba(0,0,0,.55);border-radius:4px;padding:0 3px;
+}
+
+/* --- библиотека встроенных --- */
+#builtinGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:4px;margin:6px 0}
+#builtinGrid .bi{
+  aspect-ratio:1;background:var(--panel-2);border:1px solid var(--line);border-radius:5px;
+  padding:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+#builtinGrid .bi:hover{border-color:var(--accent)}
+#builtinGrid .bi svg{width:100%;height:100%;fill:var(--fg)}
+
+/* --- палитра --- */
+#palette{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:6px 0}
+#palette .sw{position:relative}
+#palette .sw .x{
+  position:absolute;top:-6px;right:-6px;width:14px;height:14px;border-radius:50%;
+  background:var(--panel);border:1px solid var(--line);font-size:9px;line-height:12px;
+  text-align:center;cursor:pointer;display:none;
+}
+#palette .sw:hover .x{display:block}
+
+/* --- превью --- */
+#previewWrap{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  max-width:100%;max-height:100%;min-height:0;min-width:0;
+  box-shadow:0 8px 40px rgba(0,0,0,.55);
+}
+#preview{
+  display:block;max-width:100%;max-height:100%;
+  background:
+    linear-gradient(45deg,#666 25%,transparent 25%,transparent 75%,#666 75%),
+    linear-gradient(45deg,#666 25%,#888 25%,#888 75%,#666 75%);
+  background-size:16px 16px;background-position:0 0,8px 8px;
+}
+#bleedBox{position:absolute;border:1px dashed rgba(255,80,80,.9);pointer-events:none;display:none}
+
+/* --- текстовый слой: drag-оверлей --- */
+#textHandles{position:absolute;left:0;top:0;display:none;pointer-events:none}
+#textBox{
+  position:absolute;box-sizing:border-box;border:1.5px dashed var(--accent);
+  cursor:move;pointer-events:auto;background:rgba(91,157,255,.06);
+}
+#textBox .t-handle{
+  position:absolute;width:14px;height:14px;border-radius:50%;
+  background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5);
+  pointer-events:auto;transform:translate(-50%,-50%);
+}
+#textRotateHandle{left:50%;top:-22px;cursor:grab}
+#textRotateHandle::before{
+  content:"";position:absolute;left:50%;top:100%;width:1px;height:22px;
+  background:var(--accent);transform:translateX(-50%);
+}
+#textScaleHandle{left:100%;top:100%;cursor:nwse-resize;border-radius:3px}
+#stageInfo{font-size:11px;color:var(--fg-dim);text-align:center;flex:0 0 auto}
+#stageInfo b{color:var(--fg);font-weight:600}
+#stageWarn{font-size:11px;color:var(--warn);text-align:center;min-height:15px;flex:0 0 auto}
+
+/* --- drop overlay --- */
+#drop{
+  position:fixed;inset:0;background:rgba(20,22,26,.9);border:3px dashed var(--accent);
+  display:none;align-items:center;justify-content:center;font-size:18px;z-index:50;
+}
+#drop.on{display:flex}
+
+/* --- тост --- */
+#toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+  padding:9px 15px;max-width:520px;z-index:60;display:none;
+  box-shadow:0 6px 24px rgba(0,0,0,.5);
+}
+#toast.on{display:block}
+#toast.err{border-color:var(--err);color:#ffd7d7}
+#toast.ok{border-color:var(--ok)}
+
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#333846;border-radius:5px}
+::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand">
+      <h1>Print Pattern Generator</h1>
+      <p>Паттерны из своих иконок, для печати и экрана — офлайн, в браузере</p>
+    </div>
+
+    <!-- ФОРМАТ -->
+    <details class="sec" open>
+      <summary>Формат</summary>
+      <div class="sec-body">
+        <div class="row">
+          <label>Пресет</label>
+          <div class="ctl">
+            <select id="presetSel"></select>
+          </div>
+        </div>
+        <div class="row">
+          <label>Ориентация</label>
+          <div class="ctl">
+            <button id="orientBtn" style="flex:1">Портрет ⟷ Ландшафт</button>
+          </div>
+        </div>
+        <div class="row" id="customDims" style="display:none">
+          <label>Ширина×Высота</label>
+          <div class="ctl">
+            <input type="number" id="cW" class="num" min="1" value="1000">
+            <span>×</span>
+            <input type="number" id="cH" class="num" min="1" value="1000">
+            <select id="cUnit" style="flex:0 0 64px">
+              <option value="px">px</option>
+              <option value="mm">мм</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" id="dpiRow">
+          <label>DPI</label>
+          <div class="ctl">
+            <input type="range" id="dpi" min="72" max="1200" step="1" value="300">
+            <input type="number" id="dpiNum" class="num" min="72" max="1200" value="300">
+          </div>
+        </div>
+        <div class="row">
+          <label>Вылеты (bleed)</label>
+          <div class="ctl">
+            <input type="range" id="bleed" min="0" max="20" step="0.5" value="0">
+            <input type="number" id="bleedNum" class="num" min="0" max="20" step="0.5" value="0">
+            <span style="flex:0 0 auto;color:var(--fg-dim)">мм</span>
+          </div>
+        </div>
+        <p class="hint" id="fmtHint"></p>
+      </div>
+    </details>
+
+    <!-- ИКОНКИ -->
+    <details class="sec" open>
+      <summary>Иконки</summary>
+      <div class="sec-body">
+        <div class="btn-row">
+          <button id="btnUpload">📁 Загрузить файлы</button>
+          <button id="btnPasteHint" title="Ctrl+V где угодно на странице">📋 Вставить (Ctrl+V)</button>
+        </div>
+        <input type="file" id="fileInput" accept=".svg,.png,.webp,image/svg+xml,image/png,image/webp" multiple style="display:none">
+        <p class="hint">Можно также перетащить файлы на окно (drag-and-drop).</p>
+
+        <div class="row" style="margin-top:12px">
+          <label>Ссылка (URL)</label>
+          <div class="ctl">
+            <input type="text" id="urlInput" placeholder="https://cdn-icons-png.flaticon.com/512/…/….png">
+          </div>
+        </div>
+        <div class="btn-row"><button id="btnUrlAdd" style="flex:1">Добавить по ссылке</button></div>
+        <div class="row">
+          <label class="chk" style="flex:1"><input type="checkbox" id="useProxy"> Использовать CORS-прокси при ошибке</label>
+        </div>
+        <div class="row" id="proxyRow" style="display:none">
+          <label>Прокси-URL</label>
+          <div class="ctl"><input type="text" id="proxyUrl" value="https://corsproxy.io/?url="></div>
+        </div>
+        <p class="hint warn">Прокси — сторонний сервис: ссылка на иконку уйдёт туда. Используйте, только если прямая загрузка не удалась.</p>
+
+        <div class="row" style="margin-top:12px">
+          <label>Эмодзи-фолбэк</label>
+          <div class="ctl"><input type="text" id="emojiInput" placeholder="🌸 ⭐ 💚"></div>
+        </div>
+        <div class="btn-row"><button id="btnEmojiAdd" style="flex:1">Добавить эмодзи</button></div>
+        <p class="hint warn">Рисуется системным шрифтом ОС: не для печати, только для наброска.</p>
+
+        <p class="hint" style="margin-top:12px;font-weight:600;color:var(--fg)">Встроенный набор</p>
+        <div id="builtinGrid"></div>
+
+        <p class="hint" style="margin-top:12px;font-weight:600;color:var(--fg)">Используемые в паттерне</p>
+        <div id="iconGrid"></div>
+        <p class="hint" id="iconHint"></p>
+
+        <div class="row" style="margin-top:8px">
+          <label class="chk" style="flex:1"><input type="checkbox" id="recolor"> Перекрашивать в цвета палитры</label>
+        </div>
+        <p class="hint">Клик по иконке в списке — включить/выключить. Растровые не перекрашиваются, если у них нет альфа-канала.</p>
+      </div>
+    </details>
+
+    <!-- РАСКЛАДКА -->
+    <details class="sec" open>
+      <summary>Раскладка</summary>
+      <div class="sec-body">
+        <div class="row">
+          <label>Схема</label>
+          <div class="ctl">
+            <select id="layout">
+              <option value="grid">Сетка</option>
+              <option value="checker">Шахматка</option>
+              <option value="brick">Кирпичная кладка</option>
+              <option value="scatter">Случайная россыпь</option>
+              <option value="fillscatter">Заливка фона + россыпь</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="grp-grid" class="lay-grp">
+          <div class="row"><label>Шаг X / Y</label><div class="ctl">
+            <input type="range" id="stepX" min="20" max="600" value="120"><input type="number" id="stepXNum" class="num" value="120">
+          </div></div>
+          <div class="row"><label></label><div class="ctl">
+            <input type="range" id="stepY" min="20" max="600" value="120"><input type="number" id="stepYNum" class="num" value="120">
+          </div></div>
+          <div class="row"><label class="chk" style="flex:1"><input type="checkbox" id="linkStep" checked> Связать X и Y</label></div>
+        </div>
+
+        <div id="grp-brick" class="lay-grp" style="display:none">
+          <div class="row"><label>Смещение ряда</label><div class="ctl">
+            <input type="range" id="brickOffset" min="0" max="1" step="0.05" value="0.5">
+            <input type="number" id="brickOffsetNum" class="num" step="0.05" value="0.5">
+          </div></div>
+          <div class="row"><label class="chk" style="flex:1"><input type="checkbox" id="brickCols"> Смещать колонки, не ряды</label></div>
+        </div>
+
+        <div id="grp-scatter" class="lay-grp" style="display:none">
+          <div class="row"><label>Плотность</label><div class="ctl">
+            <input type="range" id="density" min="1" max="60" value="14"><input type="number" id="densityNum" class="num" value="14">
+          </div></div>
+          <div class="row"><label>Мин. размер</label><div class="ctl">
+            <input type="range" id="scaleMin" min="10" max="300" value="40"><input type="number" id="scaleMinNum" class="num" value="40">
+          </div></div>
+          <div class="row"><label>Макс. размер</label><div class="ctl">
+            <input type="range" id="scaleMax" min="10" max="400" value="90"><input type="number" id="scaleMaxNum" class="num" value="90">
+          </div></div>
+          <div class="row"><label>Мин. дистанция</label><div class="ctl">
+            <input type="range" id="minDist" min="0" max="200" value="10"><input type="number" id="minDistNum" class="num" value="10">
+          </div></div>
+        </div>
+
+        <div id="grp-fillscatter" class="lay-grp" style="display:none">
+          <p class="hint" style="font-weight:600;color:var(--fg)">Фоновый слой (замощение)</p>
+          <div class="row"><label>Фоновая иконка</label><div class="ctl"><select id="bgIcon"></select></div></div>
+          <div class="row"><label>Схема фона</label><div class="ctl">
+            <select id="bgScheme"><option value="grid">Сетка</option><option value="brick">Кирпич</option></select>
+          </div></div>
+          <div class="row"><label>Шаг фона</label><div class="ctl">
+            <input type="range" id="bgStep" min="20" max="400" value="80"><input type="number" id="bgStepNum" class="num" value="80">
+          </div></div>
+          <div class="row"><label>Прозрачность фона</label><div class="ctl">
+            <input type="range" id="bgOpacity" min="0" max="1" step="0.05" value="0.35">
+            <input type="number" id="bgOpacityNum" class="num" step="0.05" value="0.35">
+          </div></div>
+          <p class="hint" style="font-weight:600;color:var(--fg);margin-top:10px">Россыпь поверх — параметры как у «Случайной россыпи» выше</p>
+        </div>
+
+        <p class="hint" style="font-weight:600;color:var(--fg);margin-top:12px">Общее</p>
+        <div class="row"><label>Порядок иконок</label><div class="ctl">
+          <select id="order">
+            <option value="sequence">По порядку</option>
+            <option value="random">Случайно</option>
+            <option value="row">По рядам</option>
+            <option value="col">По колонкам</option>
+          </select>
+        </div></div>
+        <div class="row"><label>Джиттер позиции</label><div class="ctl">
+          <input type="range" id="jitterPos" min="0" max="60" value="0"><input type="number" id="jitterPosNum" class="num" value="0">
+        </div></div>
+        <div class="row"><label>Джиттер размера</label><div class="ctl">
+          <input type="range" id="jitterScale" min="0" max="80" value="0"><input type="number" id="jitterScaleNum" class="num" value="0">
+        </div></div>
+        <div class="row"><label>Джиттер прозрачн.</label><div class="ctl">
+          <input type="range" id="jitterAlpha" min="0" max="1" step="0.05" value="0"><input type="number" id="jitterAlphaNum" class="num" step="0.05" value="0">
+        </div></div>
+        <div class="row"><label>Размер иконки</label><div class="ctl">
+          <input type="range" id="iconSize" min="10" max="400" value="90"><input type="number" id="iconSizeNum" class="num" value="90">
+        </div></div>
+      </div>
+    </details>
+
+    <!-- ПОВОРОТЫ -->
+    <details class="sec">
+      <summary>Повороты</summary>
+      <div class="sec-body">
+        <div class="row"><label>Режим поворота</label><div class="ctl">
+          <select id="rotMode">
+            <option value="fixed">Фиксированный</option>
+            <option value="alternate">Через одну (±)</option>
+            <option value="random">Случайный</option>
+            <option value="byrow">По рядам (инкремент)</option>
+          </select>
+        </div></div>
+        <div class="row"><label>Угол</label><div class="ctl">
+          <input type="range" id="rotAngle" min="-180" max="180" value="0"><input type="number" id="rotAngleNum" class="num" value="0">
+        </div></div>
+        <div class="row" id="rotRangeRow" style="display:none"><label>Диапазон ±</label><div class="ctl">
+          <input type="range" id="rotRange" min="0" max="180" value="15"><input type="number" id="rotRangeNum" class="num" value="15">
+        </div></div>
+        <div class="row"><label>Привязка (шаг)</label><div class="ctl">
+          <input type="range" id="rotSnap" min="0" max="90" step="1" value="0"><input type="number" id="rotSnapNum" class="num" value="0">
+        </div></div>
+        <p class="hint">0 — без привязки к сетке углов.</p>
+
+        <p class="hint" style="font-weight:600;color:var(--fg);margin-top:12px">Поворот всего паттерна</p>
+        <div class="row"><label>Угол сцены</label><div class="ctl">
+          <input type="range" id="sceneRot" min="-180" max="180" value="0"><input type="number" id="sceneRotNum" class="num" value="0">
+        </div></div>
+      </div>
+    </details>
+
+    <!-- ЦВЕТ -->
+    <details class="sec">
+      <summary>Цвет</summary>
+      <div class="sec-body">
+        <div class="row"><label class="chk" style="flex:1"><input type="checkbox" id="bgTransparent"> Прозрачный фон</label></div>
+        <div class="row" id="bgColorRow"><label>Цвет фона</label><div class="ctl">
+          <input type="color" id="bgColor" value="#ffffff">
+        </div></div>
+        <div class="row"><label>Палитра иконок</label><div class="ctl">
+          <input type="color" id="paletteAdd">
+        </div></div>
+        <div id="palette"></div>
+        <p class="hint">Активна только при включённой перекраске (см. секцию «Иконки»). Цвета раздаются по тому же правилу, что и порядок иконок.</p>
+        <div class="row"><label>Прозрачность иконок</label><div class="ctl">
+          <input type="range" id="iconAlpha" min="0" max="1" step="0.05" value="1"><input type="number" id="iconAlphaNum" class="num" step="0.05" value="1">
+        </div></div>
+      </div>
+    </details>
+
+    <!-- ТЕКСТ -->
+    <details class="sec">
+      <summary>Текст поверх</summary>
+      <div class="sec-body">
+        <div class="row"><label class="chk" style="flex:1"><input type="checkbox" id="textEnabled"> Показывать текст</label></div>
+        <div class="row"><label>Содержимое</label><div class="ctl">
+          <textarea id="textContent" rows="2" placeholder="Ваш текст…" style="resize:vertical"></textarea>
+        </div></div>
+        <div class="row"><label>Шрифт</label><div class="ctl">
+          <select id="textFont">
+            <optgroup label="🎪 Цирк / карнавал (шапито)">
+              <option value="'Luckiest Guy', cursive">Luckiest Guy</option>
+              <option value="Bangers, cursive">Bangers</option>
+              <option value="Lobster, cursive">Lobster</option>
+              <option value="'Lobster Two', cursive">Lobster Two</option>
+              <option value="'Alfa Slab One', serif">Alfa Slab One</option>
+              <option value="Rye, serif">Rye</option>
+              <option value="Bungee, sans-serif">Bungee</option>
+              <option value="'Bungee Inline', sans-serif">Bungee Inline</option>
+              <option value="'Titan One', sans-serif">Titan One</option>
+              <option value="Chewy, cursive">Chewy</option>
+              <option value="Fredoka, sans-serif">Fredoka</option>
+            </optgroup>
+            <optgroup label="Обычные">
+              <option value="Arial, Helvetica, sans-serif">Arial</option>
+              <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica Neue</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="'Times New Roman', Times, serif">Times New Roman</option>
+              <option value="'Courier New', Courier, monospace">Courier New</option>
+              <option value="Verdana, sans-serif">Verdana</option>
+              <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+              <option value="Impact, 'Arial Narrow Bold', sans-serif">Impact</option>
+              <option value="'Comic Sans MS', 'Comic Sans', cursive">Comic Sans MS</option>
+              <option value="'Palatino Linotype', Palatino, serif">Palatino</option>
+              <option value="cursive">Cursive (системный)</option>
+              <option value="fantasy">Fantasy (системный)</option>
+            </optgroup>
+          </select>
+        </div></div>
+        <div class="row">
+          <label>Начертание</label>
+          <div class="ctl">
+            <label class="chk" style="flex:0 0 auto"><input type="checkbox" id="textBold"> Жирный</label>
+            <label class="chk" style="flex:0 0 auto"><input type="checkbox" id="textItalic"> Курсив</label>
+          </div>
+        </div>
+        <div class="row"><label>Выравнивание</label><div class="ctl">
+          <select id="textAlign">
+            <option value="left">Слева</option>
+            <option value="center" selected>По центру</option>
+            <option value="right">Справа</option>
+          </select>
+        </div></div>
+        <div class="row"><label>Размер</label><div class="ctl">
+          <input type="range" id="textSize" min="1" max="40" step="0.5" value="10"><input type="number" id="textSizeNum" class="num" step="0.5" value="10">
+          <span style="flex:0 0 auto;color:var(--fg-dim)">% ширины</span>
+        </div></div>
+        <div class="row"><label>Цвет текста</label><div class="ctl">
+          <input type="color" id="textColor" value="#ffffff">
+        </div></div>
+
+        <div class="row"><label class="chk" style="flex:1"><input type="checkbox" id="textStroke"> Обводка</label></div>
+        <div class="row"><label>Цвет обводки</label><div class="ctl">
+          <input type="color" id="textStrokeColor" value="#000000">
+        </div></div>
+        <div class="row"><label>Толщина обводки</label><div class="ctl">
+          <input type="range" id="textStrokeWidth" min="0.2" max="10" step="0.2" value="2"><input type="number" id="textStrokeWidthNum" class="num" step="0.2" value="2">
+          <span style="flex:0 0 auto;color:var(--fg-dim)">% размера</span>
+        </div></div>
+
+        <div class="row"><label class="chk" style="flex:1"><input type="checkbox" id="textShadow"> Тень</label></div>
+        <div class="row"><label>Цвет тени</label><div class="ctl">
+          <input type="color" id="textShadowColor" value="#000000">
+        </div></div>
+        <div class="row"><label>Размытие тени</label><div class="ctl">
+          <input type="range" id="textShadowBlur" min="0" max="40" step="1" value="8"><input type="number" id="textShadowBlurNum" class="num" step="1" value="8">
+        </div></div>
+        <div class="row"><label>Смещение тени</label><div class="ctl">
+          <input type="range" id="textShadowOffset" min="0" max="40" step="1" value="4"><input type="number" id="textShadowOffsetNum" class="num" step="1" value="4">
+        </div></div>
+
+        <p class="hint" style="font-weight:600;color:var(--fg);margin-top:10px">Положение и трансформация</p>
+        <div class="row"><label>Поворот</label><div class="ctl">
+          <input type="range" id="textRotation" min="-180" max="180" value="0"><input type="number" id="textRotationNum" class="num" value="0">
+        </div></div>
+        <div class="row"><label>Масштаб</label><div class="ctl">
+          <input type="range" id="textScale" min="0.1" max="6" step="0.05" value="1"><input type="number" id="textScaleNum" class="num" step="0.05" value="1">
+        </div></div>
+        <div class="btn-row"><button id="btnTextCenter" style="flex:1">По центру</button></div>
+        <p class="hint">Текст можно перетащить прямо в превью: тяните за блок — перемещение, за верхнюю точку — поворот, за нижний правый уголок — масштаб.</p>
+      </div>
+    </details>
+
+    <!-- ЭКСПОРТ -->
+    <details class="sec">
+      <summary>Экспорт и настройки</summary>
+      <div class="sec-body">
+        <div class="row"><label>Сид</label><div class="ctl">
+          <input type="number" id="seed" value="1">
+          <button id="btnShuffle">🎲</button>
+        </div></div>
+        <div class="btn-row">
+          <button id="btnExportPng" class="primary">Скачать PNG</button>
+          <button id="btnExportJpg">JPEG</button>
+        </div>
+        <div class="row" id="jpgQualityRow" style="display:none"><label>Качество JPEG</label><div class="ctl">
+          <input type="range" id="jpgQuality" min="0.3" max="1" step="0.05" value="0.92">
+          <input type="number" id="jpgQualityNum" class="num" step="0.05" value="0.92">
+        </div></div>
+        <div class="btn-row"><button id="btnExportSvg" class="primary" style="flex:1">Скачать SVG (вектор)</button></div>
+        <p class="hint" id="exportHint"></p>
+
+        <p class="hint" style="font-weight:600;color:var(--fg);margin-top:12px">Настройки</p>
+        <div class="btn-row">
+          <button id="btnSaveJson">💾 Сохранить JSON</button>
+          <button id="btnLoadJson">📂 Загрузить JSON</button>
+        </div>
+        <input type="file" id="jsonInput" accept="application/json" style="display:none">
+        <div class="row"><label class="chk" style="flex:1"><input type="checkbox" id="embedIcons"> Встраивать иконки в JSON (base64)</label></div>
+        <div class="btn-row"><button id="btnPermalink" style="flex:1">🔗 Скопировать ссылку с настройками</button></div>
+        <p class="hint">Настройки автосохраняются в этом браузере.</p>
+        <div class="btn-row"><button id="btnResetAll" style="flex:1;border-color:var(--err);color:#ffb4b4">↺ Сбросить всё к настройкам по умолчанию</button></div>
+        <p class="hint warn">Вернёт формат, раскладку, цвет и текст к значениям по умолчанию, уберёт все иконки (включая загруженные) и очистит автосохранение в этом браузере. Действие необратимо.</p>
+      </div>
+    </details>
+  </aside>
+
+  <main id="stage">
+    <div id="previewWrap">
+      <canvas id="preview"></canvas>
+      <div id="bleedBox"></div>
+      <div id="textHandles">
+        <div id="textBox">
+          <div id="textRotateHandle" class="t-handle" title="Тяните — поворот"></div>
+          <div id="textScaleHandle" class="t-handle" title="Тяните — масштаб"></div>
+        </div>
+      </div>
+    </div>
+    <div id="stageInfo"></div>
+    <div id="stageWarn"></div>
+  </main>
+</div>
+
+<div id="drop"><div>Отпустите файлы, чтобы добавить иконки</div></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+/* ============================== ФОРМАТЫ ============================== */
+const MM_PER_IN = 25.4;
+function mmToPx(mm, dpi){ return Math.round(mm / MM_PER_IN * dpi); }
+
+// Пресеты: px-пресеты игнорируют DPI, mm-пресеты пересчитываются от dpi.
+const PRESETS = [
+  { id:'iphone15pro', name:'iPhone 15 Pro (экран)', kind:'px', w:1179, h:2556 },
+  { id:'iphoneLogical', name:'iPhone (лог. @2x)', kind:'px', w:780, h:1688 },
+  { id:'desktopQHD', name:'Desktop 2560×1440', kind:'px', w:2560, h:1440 },
+  { id:'desktopFHD', name:'Desktop 1920×1080', kind:'px', w:1920, h:1080 },
+  { id:'a4', name:'A4 (печать)', kind:'mm', w:210, h:297 },
+  { id:'a5', name:'A5 (печать)', kind:'mm', w:148, h:210 },
+  { id:'c6', name:'Конверт C6', kind:'mm', w:114, h:162 },
+  { id:'dl', name:'Конверт DL', kind:'mm', w:110, h:220 },
+  { id:'ig-post', name:'Instagram post', kind:'px', w:1080, h:1080 },
+  { id:'ig-story', name:'Instagram story', kind:'px', w:1080, h:1920 },
+  { id:'custom', name:'Произвольный…', kind:'custom' },
+];
+function findPreset(id){ return PRESETS.find(p=>p.id===id) || PRESETS[0]; }
+
+/* ============================== RNG (mulberry32) ============================== */
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function makeRng(seedNum){
+  const rng = mulberry32(Math.floor(seedNum) || 1);
+  return { next: rng, range:(a,b)=> a + rng()*(b-a), pick:(arr)=> arr[Math.floor(rng()*arr.length)] };
+}
+
+/* ============================== СОСТОЯНИЕ ============================== */
+const DEFAULT_CONFIG = {
+  format: { presetId:'a4', orientation:'portrait', customW:1000, customH:1000, customUnit:'px', dpi:300, bleedMm:0 },
+  layout: {
+    scheme:'grid', stepX:120, stepY:120, linkStep:true,
+    brickOffset:0.5, brickCols:false,
+    density:14, scaleMin:40, scaleMax:90, minDist:10,
+    bgIconId:null, bgScheme:'grid', bgStep:80, bgOpacity:0.35,
+    order:'sequence', jitterPos:0, jitterScale:0, jitterAlpha:0, iconSize:90,
+  },
+  rotation: { mode:'fixed', angle:0, range:15, snap:0, sceneRot:0 },
+  color: { bgTransparent:false, bgColor:'#ffffff', recolor:false, palette:[], iconAlpha:1 },
+  seed: 1,
+  jpgQuality: 0.92,
+  text: {
+    enabled:false, content:'Ваш текст', fontFamily:'Arial, Helvetica, sans-serif',
+    bold:false, italic:false, align:'center',
+    sizeRatio:10, color:'#ffffff',
+    stroke:false, strokeColor:'#000000', strokeWidthRatio:2,
+    shadow:false, shadowColor:'#000000', shadowBlur:8, shadowOffset:4,
+    xFrac:0.5, yFrac:0.5, rotation:0, scale:1,
+  },
+};
+let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+
+/* Иконки живут отдельно от config (не всё сериализуется по умолчанию). */
+let icons = [];      // { id, kind:'svg'|'raster'|'emoji', name, svgText, blobUrl, img, naturalW, naturalH, enabled, tainted, sourceUrl }
+let iconSeq = 1;
+function nextIconId(){ return 'ic' + (iconSeq++); }
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+function toast(msg, kind){
+  const el = $('#toast');
+  el.textContent = msg;
+  el.className = 'on' + (kind ? ' '+kind : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ el.className=''; }, kind==='err' ? 6000 : 3200);
+}
+
+/* ============================== ВСТРОЕННЫЕ ИКОНКИ ============================== */
+// Простые монохромные SVG (viewBox 0 0 100 100), заливка через fill="currentColor" -> перекрашиваемы.
+const BUILTIN_ICONS = {
+  heart:  '<path d="M50 88 12 52C-2 38 4 14 26 8c12-3 21 2 24 11 3-9 12-14 24-11 22 6 28 30 14 44Z"/>',
+  star:   '<path d="M50 6 62 38 96 40 69 61 79 94 50 75 21 94 31 61 4 40 38 38Z"/>',
+  circle: '<circle cx="50" cy="50" r="42"/>',
+  diamond:'<path d="M50 4 92 50 50 96 8 50Z"/>',
+  square: '<rect x="10" y="10" width="80" height="80" rx="10"/>',
+  triangle:'<path d="M50 8 94 90 6 90Z"/>',
+  leaf:   '<path d="M90 10C40 10 10 40 10 90c50 0 80-30 80-80Z M20 80 80 20" fill-rule="evenodd" stroke="none"/>',
+  drop:   '<path d="M50 4C50 4 84 46 84 66a34 34 0 0 1-68 0C16 46 50 4 50 4Z"/>',
+  snowflake:'<g stroke="currentColor" stroke-width="7" fill="none" stroke-linecap="round"><path d="M50 6v88M6 50h88M18 18l64 64M82 18 18 82"/></g>',
+  cross:  '<path d="M40 4h20v36h36v20H60v36H40V60H4V40h36Z"/>',
+  wave:   '<path d="M2 60c12-20 24-20 36 0s24 20 36 0 24-20 36 0v20c-12-20-24-20-36 0s-24 20-36 0-24-20-36 0Z"/>',
+  hexagon:'<path d="M50 4 92 27v46L50 96 8 73V27Z"/>',
+  plus:   '<path d="M40 4h20v36h36v20H60v36H40V60H4V40h36Z"/>',
+  moon:   '<path d="M62 4a46 46 0 1 0 34 78A38 38 0 0 1 62 4Z"/>',
+  sun:    '<g><circle cx="50" cy="50" r="22"/><g stroke="currentColor" stroke-width="6" stroke-linecap="round"><path d="M50 4v14M50 82v14M4 50h14M82 50h14M15 15l10 10M75 75l10 10M85 15 75 25M25 75 15 85"/></g></g>',
+  flower: '<g><circle cx="50" cy="50" r="12"/><circle cx="50" cy="20" r="16"/><circle cx="50" cy="80" r="16"/><circle cx="20" cy="50" r="16"/><circle cx="80" cy="50" r="16"/></g>',
+  clover: '<g><circle cx="35" cy="35" r="20"/><circle cx="65" cy="35" r="20"/><circle cx="35" cy="65" r="20"/><circle cx="65" cy="65" r="20"/><rect x="46" y="50" width="8" height="40" rx="4"/></g>',
+  bolt:   '<path d="M56 4 18 56h24l-8 40 46-58H56Z"/>',
+  paw:    '<g><ellipse cx="50" cy="66" rx="26" ry="22"/><circle cx="20" cy="34" r="12"/><circle cx="42" cy="16" r="12"/><circle cx="58" cy="16" r="12"/><circle cx="80" cy="34" r="12"/></g>',
+  anchor: '<g stroke="currentColor" stroke-width="8" fill="none" stroke-linecap="round"><circle cx="50" cy="16" r="10" fill="currentColor" stroke="none"/><path d="M50 26v66M20 60a30 30 0 0 0 30 30 30 30 0 0 0 30-30M14 50h16M70 50h16"/></g>',
+  crown:  '<path d="M6 36 26 54 50 20 74 54 94 36 88 78H12Z"/>',
+  balloon:'<g><ellipse cx="50" cy="36" rx="28" ry="32"/><path d="M50 68 44 82h12Z"/><path d="M50 82v14" stroke="currentColor" stroke-width="4" fill="none"/></g>',
+  gift:   '<g><rect x="14" y="40" width="72" height="52" rx="4"/><rect x="6" y="26" width="88" height="18" rx="4"/><rect x="46" y="26" width="8" height="66"/><path d="M50 26c-6-20-34-20-34-2 0 10 16 2 34 2ZM50 26c6-20 34-20 34-2 0 10-16 2-34 2Z"/></g>',
+  music:  '<g><circle cx="26" cy="78" r="14"/><circle cx="76" cy="70" r="14"/><path d="M40 78V20l50-10v58" stroke="currentColor" stroke-width="8" fill="none"/></g>',
+  umbrella:'<g><path d="M4 50a46 46 0 0 1 92 0Z"/><path d="M50 50v34a10 10 0 0 1-16 8" stroke="currentColor" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M50 4v10" stroke="currentColor" stroke-width="6"/></g>',
+  spark:  '<path d="M50 2c4 26 14 36 40 40-26 4-36 14-40 40-4-26-14-36-40-40 26-4 36-14 40-40Z"/>',
+};
+function builtinSvg(name, extra){
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"${extra||''}>${BUILTIN_ICONS[name]}</svg>`;
+}
+
+function renderBuiltinPalette(){
+  const grid = $('#builtinGrid');
+  grid.innerHTML = '';
+  Object.keys(BUILTIN_ICONS).forEach(name=>{
+    const div = document.createElement('div');
+    div.className = 'bi';
+    div.title = name;
+    div.innerHTML = builtinSvg(name);
+    div.addEventListener('click', ()=> addBuiltinIcon(name));
+    grid.appendChild(div);
+  });
+}
+
+function addBuiltinIcon(name){
+  const svgText = builtinSvg(name, ' fill="currentColor"');
+  addSvgIcon(svgText, name, { recolorable:true });
+}
+
+/* ============================== ДОБАВЛЕНИЕ ИКОНОК ============================== */
+function normalizeSvgText(svgText){
+  // Гарантируем width/height (иначе некоторые движки растеризуют в 0x0/300x150).
+  try{
+    const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.documentElement;
+    if (svg.nodeName === 'parsererror' || !svg.tagName || svg.tagName.toLowerCase()!=='svg') return svgText;
+    let vb = svg.getAttribute('viewBox');
+    if (!vb){
+      const w = parseFloat(svg.getAttribute('width'))||100;
+      const h = parseFloat(svg.getAttribute('height'))||100;
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      vb = svg.getAttribute('viewBox');
+    }
+    if (!svg.getAttribute('width') || !svg.getAttribute('height')){
+      const parts = vb.split(/\s+/).map(parseFloat);
+      svg.setAttribute('width', parts[2] || 100);
+      svg.setAttribute('height', parts[3] || 100);
+    }
+    return new XMLSerializer().serializeToString(svg);
+  }catch(e){ return svgText; }
+}
+
+function extractSvgParts(svgText){
+  // Достаём viewBox и внутренний контент — нужны для встраивания через <symbol>/<use> в SVG-экспорте.
+  let viewBox = '0 0 100 100', inner = '';
+  try{
+    const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.documentElement;
+    if (svg && svg.tagName && svg.tagName.toLowerCase()==='svg'){
+      viewBox = svg.getAttribute('viewBox') || viewBox;
+      inner = Array.from(svg.childNodes).map(n=> new XMLSerializer().serializeToString(n)).join('');
+    }
+  }catch(e){}
+  return { viewBox, inner };
+}
+
+function addSvgIcon(svgText, name, opts){
+  opts = opts || {};
+  svgText = normalizeSvgText(svgText);
+  const { viewBox, inner } = extractSvgParts(svgText);
+  const icon = {
+    id: nextIconId(), kind:'svg', name: name||'icon', svgText, viewBox, innerSvg: inner,
+    enabled:true, weight:1, tainted:false, recolorable: opts.recolorable !== false,
+    sourceUrl: opts.sourceUrl || null,
+    _rastCache: new Map(),
+  };
+  icons.push(icon);
+  onIconsChanged();
+  return icon;
+}
+
+function addRasterIcon(blobOrUrl, name, opts){
+  opts = opts || {};
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    if (opts.crossOrigin) img.crossOrigin = 'anonymous';
+    img.onload = ()=>{
+      const icon = {
+        id: nextIconId(), kind:'raster', name: name||'image', img,
+        naturalW: img.naturalWidth, naturalH: img.naturalHeight,
+        enabled:true, weight:1, tainted: !!opts.tainted, recolorable:false,
+        sourceUrl: opts.sourceUrl || null,
+        _rastCache: new Map(),
+      };
+      icons.push(icon);
+      onIconsChanged();
+      resolve(icon);
+    };
+    img.onerror = (e)=> reject(e);
+    img.src = blobOrUrl;
+  });
+}
+
+function addEmojiIcon(ch){
+  const icon = {
+    id: nextIconId(), kind:'emoji', name: ch, ch,
+    enabled:true, weight:1, tainted:false, recolorable:false,
+    _rastCache: new Map(),
+  };
+  icons.push(icon);
+  onIconsChanged();
+  return icon;
+}
+
+function removeIcon(id){
+  icons = icons.filter(i=>i.id!==id);
+  if (config.layout.bgIconId === id) config.layout.bgIconId = null;
+  onIconsChanged();
+}
+
+function handleFiles(fileList){
+  const files = Array.from(fileList);
+  if (!files.length) return;
+  let added = 0;
+  const jobs = files.map(file=>{
+    const isSvg = file.type === 'image/svg+xml' || /\.svg$/i.test(file.name);
+    if (isSvg){
+      return file.text().then(txt=>{ addSvgIcon(txt, file.name); added++; });
+    } else {
+      const url = URL.createObjectURL(file);
+      return addRasterIcon(url, file.name, {}).then(()=>{ added++; }).catch(()=>{
+        toast('Не удалось прочитать файл: '+file.name, 'err');
+      });
+    }
+  });
+  Promise.all(jobs).then(()=>{ if(added) toast(`Добавлено иконок: ${added}`,'ok'); });
+}
+
+async function addIconFromUrl(url, useProxy, proxyUrlTemplate){
+  if (!url) return;
+  const isSvgUrl = /\.svg(\?|$)/i.test(url);
+  const targetUrl = useProxy ? (proxyUrlTemplate + encodeURIComponent(url)) : url;
+  try{
+    const resp = await fetch(targetUrl, { mode:'cors' });
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
+    const blob = await resp.blob();
+    if (isSvgUrl || blob.type === 'image/svg+xml'){
+      const txt = await blob.text();
+      addSvgIcon(txt, url.split('/').pop(), { sourceUrl:url });
+    } else {
+      const objUrl = URL.createObjectURL(blob);
+      await addRasterIcon(objUrl, url.split('/').pop(), { sourceUrl:url });
+    }
+    toast('Иконка загружена по ссылке', 'ok');
+  }catch(err){
+    // Фолбэк: попробовать как <img crossOrigin> напрямую (может сработать при пермиссивном CORS на ресурсе,
+    // даже если fetch заблокирован политикой), иначе — понятная ошибка с подсказкой про прокси.
+    try{
+      await addRasterIcon(url, url.split('/').pop(), { crossOrigin:true, sourceUrl:url });
+      toast('Иконка загружена по ссылке', 'ok');
+    }catch(err2){
+      if (!useProxy){
+        toast('Не удалось загрузить по CORS. Попробуйте включить «CORS-прокси» или скачайте иконку и загрузите файлом.', 'err');
+      } else {
+        toast('Не удалось загрузить иконку даже через прокси: '+ (err&&err.message||''), 'err');
+      }
+    }
+  }
+}
+
+/* ============================== РАСТЕРИЗАЦИЯ ИКОНОК ============================== */
+function bucketSize(px){
+  // Округляем размер вверх до "красивого" бакета с супersample x2, чтобы не растеризовать
+  // на каждое малое изменение слайдера и не мылить при масштабировании превью->экспорт.
+  const s = Math.max(8, Math.ceil(px));
+  let b = 16;
+  while (b < s) b *= 1.3;
+  return Math.round(Math.min(b, 4096) * 2); // x2 supersample
+}
+
+function recolorSvgText(svgText, color){
+  if (!color) return svgText;
+  try{
+    const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.documentElement;
+    const walk = (el)=>{
+      if (el.nodeType !== 1) return;
+      const fill = el.getAttribute('fill');
+      if (fill !== 'none') {
+        if (fill || el.tagName!=='svg') el.setAttribute('fill', color);
+      }
+      if (el.getAttribute('stroke') && el.getAttribute('stroke') !== 'none'){
+        el.setAttribute('stroke', color);
+      }
+      for (const child of el.children) walk(child);
+    };
+    // Если ни один узел не задаёт fill явно, простановка на всех графических тегах.
+    const GRAPH = new Set(['path','circle','rect','ellipse','polygon','polyline','line','g']);
+    const forceFill = (el)=>{
+      for (const child of el.children){
+        if (GRAPH.has(child.tagName)) child.setAttribute('fill', color);
+        forceFill(child);
+      }
+    };
+    forceFill(svg);
+    return new XMLSerializer().serializeToString(svg);
+  }catch(e){ return svgText; }
+}
+
+async function rasterizeIcon(icon, sizePx, color){
+  if (icon.kind === 'emoji') return rasterizeEmoji(icon, sizePx, color);
+  const bucket = bucketSize(sizePx);
+  const cacheKey = bucket + '|' + (color||'');
+  const cache = icon._rastCache;
+  if (cache.has(cacheKey)) return cache.get(cacheKey);
+
+  let bitmapPromise;
+  if (icon.kind === 'svg'){
+    const svgText = (color && icon.recolorable) ? recolorSvgText(icon.svgText, color) : icon.svgText;
+    const blob = new Blob([svgText], { type:'image/svg+xml' });
+    bitmapPromise = rasterizeSvgBlob(blob, bucket, bucket);
+  } else {
+    // растр: рисуем в offscreen нужного размера (с сохранением пропорций внутри квадрата)
+    bitmapPromise = Promise.resolve().then(()=> drawRasterToCanvas(icon.img, bucket, bucket));
+  }
+  cache.set(cacheKey, bitmapPromise);
+  return bitmapPromise;
+}
+
+function drawRasterToCanvas(img, w, h){
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  const iw = img.naturalWidth||img.width, ih = img.naturalHeight||img.height;
+  const scale = Math.min(w/iw, h/ih);
+  const dw = iw*scale, dh = ih*scale;
+  ctx.drawImage(img, (w-dw)/2, (h-dh)/2, dw, dh);
+  return c;
+}
+
+async function rasterizeSvgBlob(blob, w, h){
+  if (window.createImageBitmap){
+    try{
+      const bmp = await createImageBitmap(blob, { resizeWidth:w, resizeHeight:h, resizeQuality:'high' });
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+      return c;
+    }catch(e){ /* fallback below */ }
+  }
+  // Фолбэк через <img>
+  const url = URL.createObjectURL(blob);
+  try{
+    const img = await new Promise((res,rej)=>{
+      const im = new Image();
+      im.onload=()=>res(im); im.onerror=rej; im.src=url;
+    });
+    return drawRasterToCanvas(img, w, h);
+  } finally { URL.revokeObjectURL(url); }
+}
+
+function rasterizeEmoji(icon, sizePx, color){
+  const bucket = bucketSize(sizePx);
+  const cacheKey = bucket;
+  const cache = icon._rastCache;
+  if (cache.has(cacheKey)) return cache.get(cacheKey);
+  const c = document.createElement('canvas');
+  c.width = bucket; c.height = bucket;
+  const ctx = c.getContext('2d');
+  ctx.font = `${bucket*0.82}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(icon.ch, bucket/2, bucket*0.56);
+  const p = Promise.resolve(c);
+  cache.set(cacheKey, p);
+  return p;
+}
+
+/* ============================== ФОРМАТ: РАЗРЕШЕНИЕ ХОЛСТА ============================== */
+function effectiveDpi(fmtCfg){
+  const preset = findPreset(fmtCfg.presetId);
+  if (preset.kind === 'mm') return fmtCfg.dpi;
+  if (preset.kind === 'custom' && fmtCfg.customUnit === 'mm') return fmtCfg.dpi;
+  return 96; // px-пресеты не зависят от DPI, но нужен номинал для мм-подписи
+}
+
+function resolveFormat(fmtCfg){
+  const preset = findPreset(fmtCfg.presetId);
+  let wPx, hPx, wMm, hMm;
+  if (preset.kind === 'px'){
+    wPx = preset.w; hPx = preset.h;
+    wMm = wPx / 96 * MM_PER_IN; hMm = hPx / 96 * MM_PER_IN;
+  } else if (preset.kind === 'mm'){
+    wMm = preset.w; hMm = preset.h;
+    wPx = mmToPx(wMm, fmtCfg.dpi); hPx = mmToPx(hMm, fmtCfg.dpi);
+  } else { // custom
+    if (fmtCfg.customUnit === 'mm'){
+      wMm = fmtCfg.customW; hMm = fmtCfg.customH;
+      wPx = mmToPx(wMm, fmtCfg.dpi); hPx = mmToPx(hMm, fmtCfg.dpi);
+    } else {
+      wPx = fmtCfg.customW; hPx = fmtCfg.customH;
+      wMm = wPx / 96 * MM_PER_IN; hMm = hPx / 96 * MM_PER_IN;
+    }
+  }
+  if (fmtCfg.orientation === 'landscape' && wPx < hPx){
+    [wPx,hPx] = [hPx,wPx]; [wMm,hMm] = [hMm,wMm];
+  } else if (fmtCfg.orientation === 'portrait' && wPx > hPx){
+    [wPx,hPx] = [hPx,wPx]; [wMm,hMm] = [hMm,wMm];
+  }
+  return { wPx: Math.round(wPx), hPx: Math.round(hPx), wMm, hMm, dpi: effectiveDpi(fmtCfg), unitKind: preset.kind };
+}
+
+const CANVAS_MAX_SIDE = 16384;
+const CANVAS_MAX_AREA = 240 * 1000000; // с запасом от типичного лимита ~256MP
+
+function checkCanvasLimits(w,h){
+  if (w > CANVAS_MAX_SIDE || h > CANVAS_MAX_SIDE){
+    return `Сторона превышает предел браузера (${CANVAS_MAX_SIDE}px). Уменьшите DPI или размер.`;
+  }
+  if (w*h > CANVAS_MAX_AREA){
+    return `Итоговое изображение слишком велико (${(w*h/1e6).toFixed(0)} Мпикс). Уменьшите DPI или размер.`;
+  }
+  return null;
+}
+
+/* ============================== ПОСТРОЕНИЕ СЦЕНЫ ============================== */
+function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+
+function makeCycler(list, order, rng){
+  let seqIdx = 0;
+  return function(ctx){
+    if (!list.length) return null;
+    switch(order){
+      case 'random': return rng.pick(list);
+      case 'row': return list[((ctx.row%list.length)+list.length)%list.length];
+      case 'col': return list[((ctx.col%list.length)+list.length)%list.length];
+      default: { const it = list[seqIdx % list.length]; seqIdx++; return it; }
+    }
+  };
+}
+function makeCheckerCycler(list, order, rng){
+  const evens = list.filter((_,i)=> i%2===0);
+  const odds = list.filter((_,i)=> i%2===1);
+  const pickA = makeCycler(evens.length?evens:list, order, rng);
+  const pickB = makeCycler(odds.length?odds:list, order, rng);
+  return (ctx)=> (((ctx.row+ctx.col)%2)===0) ? pickA(ctx) : pickB(ctx);
+}
+
+function computeRotationDeg(rotCfg, ctx, rng){
+  let deg;
+  switch(rotCfg.mode){
+    case 'alternate': deg = (ctx.index % 2 === 0) ? rotCfg.angle : -rotCfg.angle; break;
+    case 'random': deg = rng.range(-rotCfg.range, rotCfg.range); break;
+    case 'byrow': deg = rotCfg.angle * ctx.row; break;
+    default: deg = rotCfg.angle;
+  }
+  if (rotCfg.snap > 0) deg = Math.round(deg / rotCfg.snap) * rotCfg.snap;
+  return deg;
+}
+
+// Основной проход по сетке (используется и для grid, и для checker, и для brick, и для фона в fillscatter)
+function walkGrid(bounds, stepX, stepY, brick, cb){
+  let index = 0;
+  for (let y = -stepY, row = 0; y < bounds.h + stepY; y += stepY, row++){
+    const rowOffset = brick && !brick.cols ? (row % 2 === 1 ? stepX * brick.offset : 0) : 0;
+    for (let x = -stepX + rowOffset, col = 0; x < bounds.w + stepX + stepX; x += stepX, col++){
+      const colOffset = brick && brick.cols ? (col % 2 === 1 ? stepY * brick.offset : 0) : 0;
+      const yy = y + colOffset;
+      if (x < -stepX*1.5 || x > bounds.w + stepX*1.5) continue;
+      cb(x, yy, row, col, index);
+      index++;
+    }
+  }
+}
+
+function walkScatter(bounds, density, scaleMin, scaleMax, minDist, rng, cb){
+  const area = bounds.w * bounds.h;
+  const count = Math.max(0, Math.round(density * area / (1000*1000)));
+  const cell = Math.max(4, minDist || 1);
+  const buckets = new Map();
+  const bkey = (bx,by)=> bx+'_'+by;
+  function tooClose(x,y,r){
+    if (minDist <= 0) return false;
+    const bx0 = Math.floor((x-r-minDist)/cell), bx1 = Math.floor((x+r+minDist)/cell);
+    const by0 = Math.floor((y-r-minDist)/cell), by1 = Math.floor((y+r+minDist)/cell);
+    for (let bx=bx0; bx<=bx1; bx++) for (let by=by0; by<=by1; by++){
+      const arr = buckets.get(bkey(bx,by));
+      if (!arr) continue;
+      for (const p of arr){
+        const dx=p.x-x, dy=p.y-y;
+        if (Math.sqrt(dx*dx+dy*dy) < (r+p.r+minDist)) return true;
+      }
+    }
+    return false;
+  }
+  function register(x,y,r){
+    const bx=Math.floor(x/cell), by=Math.floor(y/cell);
+    const k=bkey(bx,by);
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push({x,y,r});
+  }
+  let index = 0;
+  const maxAttemptsTotal = count * 40 + 200;
+  let attempts = 0;
+  let placed = 0;
+  while (placed < count && attempts < maxAttemptsTotal){
+    attempts++;
+    const x = rng.range(-scaleMax, bounds.w + scaleMax);
+    const y = rng.range(-scaleMax, bounds.h + scaleMax);
+    const size = rng.range(scaleMin, scaleMax);
+    if (tooClose(x, y, size/2)) continue;
+    register(x, y, size/2);
+    cb(x, y, size, index);
+    index++; placed++;
+  }
+}
+
+function buildScene(cfg, iconsList){
+  const rng = makeRng(cfg.seed);
+  const enabled = iconsList.filter(i=>i.enabled);
+  const fmt = resolveFormat(cfg.format);
+  const dpiForBleed = fmt.dpi;
+  const bleedPx = mmToPx(cfg.format.bleedMm || 0, dpiForBleed);
+  const canvasW = fmt.wPx + bleedPx*2;
+  const canvasH = fmt.hPx + bleedPx*2;
+  const diag = Math.ceil(Math.sqrt(canvasW*canvasW + canvasH*canvasH)) + 40;
+  const bounds = { w: diag, h: diag };
+
+  const placements = [];
+  const L = cfg.layout, R = cfg.rotation, C = cfg.color;
+
+  let iconPicker;
+  if (cfg.layout.scheme === 'checker') iconPicker = makeCheckerCycler(enabled, L.order, rng);
+  else iconPicker = makeCycler(enabled, L.order, rng);
+  const colorPicker = (C.recolor && C.palette.length) ? makeCycler(C.palette, L.order, rng) : null;
+
+  const jitterAmt = (base, pct)=> pct ? base + rng.range(-1,1)*(base*pct/100) : base;
+
+  function place(x, y, baseSize, row, col, index){
+    const icon = iconPicker({row,col,index});
+    if (!icon) return;
+    const size = Math.max(2, jitterAmt(baseSize, L.jitterScale));
+    const rotDeg = computeRotationDeg(R, {row,col,index}, rng);
+    const alpha = clamp01(C.iconAlpha + (L.jitterAlpha ? rng.range(-L.jitterAlpha, L.jitterAlpha) : 0));
+    const px = L.jitterPos ? x + rng.range(-L.jitterPos, L.jitterPos) : x;
+    const py = L.jitterPos ? y + rng.range(-L.jitterPos, L.jitterPos) : y;
+    const color = colorPicker ? colorPicker({row,col,index}) : null;
+    placements.push({ iconId: icon.id, x:px, y:py, size, rot: rotDeg*Math.PI/180, opacity: alpha, color, layer:'main' });
+  }
+
+  if (!enabled.length){
+    return { canvasW, canvasH, bounds, placements, sceneRotRad: (R.sceneRot||0)*Math.PI/180 };
+  }
+
+  const stepX = L.stepX, stepY = L.linkStep ? L.stepX : L.stepY;
+
+  switch (L.scheme){
+    case 'grid':
+      walkGrid(bounds, stepX, stepY, null, (x,y,row,col,index)=> place(x,y,L.iconSize,row,col,index));
+      break;
+    case 'checker':
+      walkGrid(bounds, stepX, stepY, null, (x,y,row,col,index)=> place(x,y,L.iconSize,row,col,index));
+      break;
+    case 'brick':
+      walkGrid(bounds, stepX, stepY, { offset:L.brickOffset, cols:L.brickCols }, (x,y,row,col,index)=> place(x,y,L.iconSize,row,col,index));
+      break;
+    case 'scatter':
+      walkScatter(bounds, L.density, L.scaleMin, L.scaleMax, L.minDist, rng, (x,y,size,index)=> place(x,y,size,0,0,index));
+      break;
+    case 'fillscatter': {
+      const bgIcon = iconsList.find(i=>i.id===L.bgIconId && i.enabled) || enabled[0];
+      if (bgIcon){
+        const bgStep = L.bgStep;
+        walkGrid(bounds, bgStep, bgStep, L.bgScheme==='brick' ? {offset:0.5,cols:false} : null, (x,y,row,col,index)=>{
+          const rotDeg = computeRotationDeg(R, {row,col,index}, rng);
+          placements.push({ iconId:bgIcon.id, x, y, size: bgStep*0.92, rot: rotDeg*Math.PI/180, opacity: L.bgOpacity, color: (C.recolor && C.palette[0]) || null, layer:'bg' });
+        });
+      }
+      const overlayPool = enabled.length > 1 ? enabled.filter(i=>i.id !== (bgIcon&&bgIcon.id)) : enabled;
+      const overlayPicker = cfg.layout.scheme==='checker' ? makeCheckerCycler(overlayPool, L.order, rng) : makeCycler(overlayPool, L.order, rng);
+      walkScatter(bounds, L.density, L.scaleMin, L.scaleMax, L.minDist, rng, (x,y,size,index)=>{
+        const icon = overlayPicker({row:0,col:0,index});
+        if (!icon) return;
+        const rotDeg = computeRotationDeg(R, {row:0,col:0,index}, rng);
+        const alpha = clamp01(C.iconAlpha + (L.jitterAlpha ? rng.range(-L.jitterAlpha, L.jitterAlpha) : 0));
+        const color = colorPicker ? colorPicker({row:0,col:0,index}) : null;
+        placements.push({ iconId: icon.id, x, y, size, rot: rotDeg*Math.PI/180, opacity: alpha, color, layer:'main' });
+      });
+      break;
+    }
+  }
+
+  return { canvasW, canvasH, bounds, placements, sceneRotRad: (R.sceneRot||0)*Math.PI/180 };
+}
+
+/* ============================== РЕНДЕР В CANVAS ============================== */
+const PREVIEW_MAX_PLACEMENTS = 4000;
+
+async function renderScene(ctx, scene, cfg, iconsList, scale, opts){
+  opts = opts || {};
+  const iconMap = new Map(iconsList.map(i=>[i.id, i]));
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.scale(scale, scale);
+  if (!cfg.color.bgTransparent || opts.forceOpaqueBg){
+    ctx.fillStyle = opts.forceOpaqueBg && cfg.color.bgTransparent ? '#ffffff' : cfg.color.bgColor;
+    ctx.fillRect(0, 0, scene.canvasW, scene.canvasH);
+  }
+  ctx.save();
+  ctx.translate(scene.canvasW/2, scene.canvasH/2);
+  ctx.rotate(scene.sceneRotRad);
+  ctx.translate(-scene.bounds.w/2, -scene.bounds.h/2);
+
+  for (const p of scene.placements){
+    const icon = iconMap.get(p.iconId);
+    if (!icon || icon.tainted) continue;
+    let bmp;
+    try{ bmp = await rasterizeIcon(icon, p.size, p.color); }catch(e){ continue; }
+    ctx.save();
+    ctx.globalAlpha = p.opacity;
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.drawImage(bmp, -p.size/2, -p.size/2, p.size, p.size);
+    ctx.restore();
+  }
+  ctx.restore();
+  await drawTextLayer(ctx, scene, cfg);
+  ctx.restore();
+}
+
+/* ---- текстовый слой поверх паттерна ---- */
+function fontStringFor(t, fontSizePx){
+  return `${t.italic?'italic ':''}${t.bold?'bold ':''}${fontSizePx}px ${t.fontFamily}`;
+}
+// Веб-шрифт (Google Fonts) может быть ещё не загружен в момент первой отрисовки — тогда canvas
+// молча нарисует текст системным fallback-шрифтом без предупреждения. Явно ждём его готовности
+// через CSS Font Loading API перед замером/отрисовкой, чтобы превью и экспорт не «мигали» не тем шрифтом.
+const _loadedFontSpecs = new Set();
+async function ensureFontReady(t, fontSizePx){
+  if (!window.document || !document.fonts || !document.fonts.load) return;
+  const primaryFamily = (t.fontFamily || '').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+  if (!primaryFamily) return;
+  const spec = `${t.italic?'italic ':''}${t.bold?'bold ':''}32px "${primaryFamily}"`;
+  if (_loadedFontSpecs.has(spec)) return;
+  try{
+    await document.fonts.load(spec, t.content || 'Ag');
+    _loadedFontSpecs.add(spec);
+  }catch(e){ /* шрифт недоступен (нет сети/имя не найдено) — рисуем тем, что даст браузер */ }
+}
+function measureTextBlock(ctx, t, canvasW){
+  const lines = (t.content || '').split('\n');
+  const fontSizePx = Math.max(1, canvasW * (t.sizeRatio/100)) * (t.scale||1);
+  ctx.font = fontStringFor(t, fontSizePx);
+  let maxW = 0;
+  for (const line of lines){ const w = ctx.measureText(line || ' ').width; if (w > maxW) maxW = w; }
+  const lineHeight = fontSizePx * 1.25;
+  return { lines, fontSizePx, lineHeight, width: maxW, height: lineHeight * lines.length };
+}
+async function drawTextLayer(ctx, scene, cfg){
+  const t = cfg.text;
+  if (!t || !t.enabled || !t.content || !t.content.trim()) return;
+  const approxSize = Math.max(1, scene.canvasW * (t.sizeRatio/100)) * (t.scale||1);
+  await ensureFontReady(t, approxSize);
+  const m = measureTextBlock(ctx, t, scene.canvasW);
+  const cx = t.xFrac * scene.canvasW, cy = t.yFrac * scene.canvasH;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((t.rotation||0) * Math.PI/180);
+  ctx.font = fontStringFor(t, m.fontSizePx);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = t.align === 'left' ? 'left' : t.align === 'right' ? 'right' : 'center';
+  ctx.lineJoin = 'round';
+  if (t.shadow){
+    ctx.shadowColor = t.shadowColor;
+    ctx.shadowBlur = t.shadowBlur * (t.scale||1);
+    const off = t.shadowOffset * (t.scale||1);
+    ctx.shadowOffsetX = off * 0.7; ctx.shadowOffsetY = off * 0.7;
+  } else {
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+  }
+  const startY = -m.height/2 + m.lineHeight/2;
+  m.lines.forEach((line, i)=>{
+    const ly = startY + i*m.lineHeight;
+    if (t.stroke){
+      ctx.lineWidth = Math.max(0.5, m.fontSizePx * (t.strokeWidthRatio/100));
+      ctx.strokeStyle = t.strokeColor;
+      ctx.strokeText(line, 0, ly);
+    }
+    ctx.fillStyle = t.color;
+    ctx.fillText(line, 0, ly);
+  });
+  ctx.restore();
+}
+
+function capPlacements(placements, max){
+  if (placements.length <= max) return { list: placements, capped:false };
+  const step = Math.ceil(placements.length / max);
+  return { list: placements.filter((_,i)=> i % step === 0), capped:true };
+}
+
+let renderToken = 0;
+let rafPending = false;
+function scheduleRender(){
+  if (rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(()=>{ rafPending = false; renderPreview(); });
+}
+
+let lastScene = null;
+
+// Реальное доступное место под канвас внутри #stage (а не константа): иначе style.width/height
+// канваса может превысить блок и браузер обрежет их по CSS max-width/max-height НЕЗАВИСИМО
+// по каждой оси, что портит соотношение сторон и рассинхронивает drag-оверлей текста с картинкой.
+function computeAvailablePreviewBox(){
+  const stage = $('#stage');
+  const cs = getComputedStyle(stage);
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const gap = parseFloat(cs.gap) || 10;
+  const infoH = $('#stageInfo').getBoundingClientRect().height || 16;
+  const warnH = $('#stageWarn').getBoundingClientRect().height || 15;
+  const rect = stage.getBoundingClientRect();
+  const w = Math.max(80, rect.width - padX);
+  const h = Math.max(80, rect.height - padY - infoH - warnH - gap*2);
+  const cap = 1400; // не растягиваем превью до огромных canvas-элементов без необходимости
+  return { w: Math.min(w, cap), h: Math.min(h, cap) };
+}
+
+async function renderPreview(){
+  const token = ++renderToken;
+  const scene = buildScene(config, icons);
+  lastScene = scene;
+
+  const canvas = $('#preview');
+  const avail = computeAvailablePreviewBox();
+  const ar = scene.canvasW / scene.canvasH;
+  let pw, ph;
+  if (avail.w / avail.h > ar){ ph = avail.h; pw = ph * ar; }
+  else { pw = avail.w; ph = pw / ar; }
+  pw = Math.max(40, pw); ph = Math.max(40, ph);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.max(1, Math.round(pw*dpr));
+  canvas.height = Math.max(1, Math.round(ph*dpr));
+  canvas.style.width = pw + 'px';
+  canvas.style.height = ph + 'px';
+  const ctx = canvas.getContext('2d');
+  const scale = canvas.width / scene.canvasW;
+
+  const { list, capped } = capPlacements(scene.placements, PREVIEW_MAX_PLACEMENTS);
+  const previewScene = Object.assign({}, scene, { placements:list });
+  await renderScene(ctx, previewScene, config, icons, scale);
+  if (token !== renderToken) return;
+
+  const warnEl = $('#stageWarn');
+  if (!icons.some(i=>i.enabled)) warnEl.textContent = 'Добавьте хотя бы одну включённую иконку — сейчас паттерн пуст.';
+  else if (capped) warnEl.textContent = `Превью упрощено: показано ${list.length} из ${scene.placements.length}. В экспорте будут все элементы.`;
+  else warnEl.textContent = '';
+
+  updateStageInfo(scene);
+  updateBleedOverlay(scene, pw, ph);
+  updateTextOverlay(scene, pw, ph);
+}
+
+function updateStageInfo(scene){
+  const fmtCfg = config.format;
+  const preset = findPreset(fmtCfg.presetId);
+  const dpiPart = preset.kind === 'px' ? '' : ` · ${scene.canvasW>0?Math.round(resolveFormat(fmtCfg).dpi):''} DPI`;
+  const mmW = (scene.canvasW / resolveFormat(fmtCfg).dpi * MM_PER_IN).toFixed(1);
+  const mmH = (scene.canvasH / resolveFormat(fmtCfg).dpi * MM_PER_IN).toFixed(1);
+  $('#stageInfo').innerHTML = `<b>${scene.canvasW} × ${scene.canvasH} px</b> &nbsp;·&nbsp; ${mmW} × ${mmH} мм${dpiPart}${fmtCfg.bleedMm?` &nbsp;·&nbsp; вылеты ${fmtCfg.bleedMm} мм`:''}`;
+}
+
+function updateBleedOverlay(scene, pw, ph){
+  const box = $('#bleedBox');
+  const bleedPx = mmToPx(config.format.bleedMm||0, resolveFormat(config.format).dpi);
+  if (!bleedPx){ box.style.display='none'; return; }
+  const scale = pw / scene.canvasW;
+  const inset = bleedPx * scale;
+  box.style.display = 'block';
+  box.style.left = inset + 'px';
+  box.style.top = inset + 'px';
+  box.style.width = (pw - inset*2) + 'px';
+  box.style.height = (ph - inset*2) + 'px';
+}
+
+/* ---- текст: интерактивный оверлей поверх превью (не попадает в экспорт) ---- */
+let _textMeasureCtx = null;
+function updateTextOverlay(scene, pw, ph){
+  const wrap = $('#textHandles');
+  const t = config.text;
+  if (!t.enabled || !t.content || !t.content.trim()){
+    wrap.style.display = 'none';
+    return;
+  }
+  if (!_textMeasureCtx) _textMeasureCtx = document.createElement('canvas').getContext('2d');
+  const m = measureTextBlock(_textMeasureCtx, t, scene.canvasW);
+  const previewScale = pw / scene.canvasW; // css-px на единицу канваса
+  const boxW = Math.max(20, m.width * previewScale);
+  const boxH = Math.max(16, m.height * previewScale);
+  const cxCss = t.xFrac * pw, cyCss = t.yFrac * ph;
+
+  wrap.style.width = pw + 'px';
+  wrap.style.height = ph + 'px';
+  wrap.style.display = 'block';
+  const box = $('#textBox');
+  box.style.left = (cxCss - boxW/2) + 'px';
+  box.style.top = (cyCss - boxH/2) + 'px';
+  box.style.width = boxW + 'px';
+  box.style.height = boxH + 'px';
+  box.style.transform = `rotate(${t.rotation||0}deg)`;
+}
+
+const textDrag = { mode:null };
+function setupTextDrag(){
+  const box = $('#textBox');
+  const rotHandle = $('#textRotateHandle');
+  const scaleHandle = $('#textScaleHandle');
+
+  function boxCenterScreen(){
+    const r = box.getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+
+  box.addEventListener('mousedown', (e)=>{
+    if (e.target === rotHandle || e.target === scaleHandle) return;
+    e.preventDefault();
+    textDrag.mode = 'move';
+    textDrag.startClientX = e.clientX; textDrag.startClientY = e.clientY;
+    textDrag.startXFrac = config.text.xFrac; textDrag.startYFrac = config.text.yFrac;
+    const canvasRect = $('#preview').getBoundingClientRect();
+    textDrag.canvasW = canvasRect.width; textDrag.canvasH = canvasRect.height;
+  });
+  rotHandle.addEventListener('mousedown', (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    textDrag.mode = 'rotate';
+    const c = boxCenterScreen();
+    textDrag.centerX = c.x; textDrag.centerY = c.y;
+    textDrag.startAngle = Math.atan2(e.clientY - c.y, e.clientX - c.x) * 180/Math.PI;
+    textDrag.startRotation = config.text.rotation || 0;
+  });
+  scaleHandle.addEventListener('mousedown', (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    textDrag.mode = 'scale';
+    const c = boxCenterScreen();
+    textDrag.centerX = c.x; textDrag.centerY = c.y;
+    textDrag.startDist = Math.max(4, Math.hypot(e.clientX - c.x, e.clientY - c.y));
+    textDrag.startScale = config.text.scale || 1;
+  });
+
+  window.addEventListener('mousemove', (e)=>{
+    if (!textDrag.mode) return;
+    if (textDrag.mode === 'move'){
+      const dx = e.clientX - textDrag.startClientX, dy = e.clientY - textDrag.startClientY;
+      config.text.xFrac = textDrag.startXFrac + dx / textDrag.canvasW;
+      config.text.yFrac = textDrag.startYFrac + dy / textDrag.canvasH;
+    } else if (textDrag.mode === 'rotate'){
+      const ang = Math.atan2(e.clientY - textDrag.centerY, e.clientX - textDrag.centerX) * 180/Math.PI;
+      let newRot = textDrag.startRotation + (ang - textDrag.startAngle);
+      while (newRot > 180) newRot -= 360;
+      while (newRot < -180) newRot += 360;
+      config.text.rotation = Math.round(newRot);
+      $('#textRotation').value = $('#textRotationNum').value = config.text.rotation;
+    } else if (textDrag.mode === 'scale'){
+      const dist = Math.max(4, Math.hypot(e.clientX - textDrag.centerX, e.clientY - textDrag.centerY));
+      let newScale = textDrag.startScale * (dist / textDrag.startDist);
+      newScale = Math.max(0.1, Math.min(8, newScale));
+      config.text.scale = Math.round(newScale*100)/100;
+      $('#textScale').value = $('#textScaleNum').value = config.text.scale;
+    }
+    scheduleRender();
+    persistDebounced();
+  });
+  window.addEventListener('mouseup', ()=>{ textDrag.mode = null; });
+}
+
+/* ============================== SVG-ЭКСПОРТ ============================== */
+function svgSymbolFor(icon){
+  if (icon.kind === 'svg'){
+    return `<symbol id="sym-${icon.id}" viewBox="${icon.viewBox}">${icon.innerSvg}</symbol>`;
+  }
+  if (icon.kind === 'raster'){
+    let dataUrl;
+    try{
+      const c = document.createElement('canvas');
+      c.width = icon.naturalW || icon.img.naturalWidth; c.height = icon.naturalH || icon.img.naturalHeight;
+      c.getContext('2d').drawImage(icon.img, 0, 0);
+      dataUrl = c.toDataURL('image/png');
+    }catch(e){ return null; } // tainted -> нельзя встроить как data URL
+    return `<symbol id="sym-${icon.id}" viewBox="0 0 1 1"><image href="${dataUrl}" x="0" y="0" width="1" height="1" preserveAspectRatio="xMidYMid meet"/></symbol>`;
+  }
+  return null; // emoji рисуется отдельно, без symbol
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function serializeSvg(scene, cfg, iconsList){
+  const iconMap = new Map(iconsList.map(i=>[i.id,i]));
+  const usedIds = new Set(scene.placements.map(p=>p.iconId));
+  const defs = [];
+  const skippedTainted = new Set();
+  for (const id of usedIds){
+    const icon = iconMap.get(id);
+    if (!icon) continue;
+    if (icon.kind === 'emoji') continue;
+    const sym = svgSymbolFor(icon);
+    if (sym) defs.push(sym); else skippedTainted.add(id);
+  }
+
+  const body = [];
+  if (!cfg.color.bgTransparent){
+    body.push(`<rect x="0" y="0" width="${scene.canvasW}" height="${scene.canvasH}" fill="${esc(cfg.color.bgColor)}"/>`);
+  }
+  const cx = scene.canvasW/2, cy = scene.canvasH/2, hw = scene.bounds.w/2, hh = scene.bounds.h/2;
+  const rotDeg = scene.sceneRotRad * 180/Math.PI;
+  body.push(`<g transform="translate(${cx} ${cy}) rotate(${rotDeg.toFixed(3)}) translate(${-hw} ${-hh})">`);
+  for (const p of scene.placements){
+    const icon = iconMap.get(p.iconId);
+    if (!icon || skippedTainted.has(p.iconId)) continue;
+    const rd = p.rot * 180/Math.PI;
+    const gAttrs = [`transform="translate(${p.x.toFixed(2)} ${p.y.toFixed(2)}) rotate(${rd.toFixed(2)})"`];
+    if (p.opacity < 1) gAttrs.push(`opacity="${p.opacity.toFixed(3)}"`);
+    if (icon.kind === 'emoji'){
+      body.push(`<g ${gAttrs.join(' ')}><text x="0" y="${p.size*0.28}" font-size="${p.size}" text-anchor="middle" font-family="'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif">${esc(icon.ch)}</text></g>`);
+    } else {
+      const fillAttr = (p.color && icon.recolorable) ? ` fill="${esc(p.color)}"` : '';
+      body.push(`<g ${gAttrs.join(' ')}${fillAttr}><use href="#sym-${icon.id}" x="${-p.size/2}" y="${-p.size/2}" width="${p.size}" height="${p.size}"/></g>`);
+    }
+  }
+  body.push('</g>');
+
+  const textOut = svgTextLayer(cfg, scene);
+  if (textOut){ defs.push(textOut.defsStr); body.push(textOut.bodyStr); }
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${scene.canvasW}" height="${scene.canvasH}" viewBox="0 0 ${scene.canvasW} ${scene.canvasH}">
+<defs>${defs.join('')}</defs>
+${body.join('\n')}
+</svg>`;
+  return { svg, skippedCount: skippedTainted.size };
+}
+
+let _svgMeasureCtx = null;
+function svgTextLayer(cfg, scene){
+  const t = cfg.text;
+  if (!t || !t.enabled || !t.content || !t.content.trim()) return null;
+  if (!_svgMeasureCtx) _svgMeasureCtx = document.createElement('canvas').getContext('2d');
+  const m = measureTextBlock(_svgMeasureCtx, t, scene.canvasW);
+  const cx = t.xFrac * scene.canvasW, cy = t.yFrac * scene.canvasH;
+  const anchor = t.align === 'left' ? 'start' : t.align === 'right' ? 'end' : 'middle';
+  const startY = -m.height/2 + m.lineHeight/2;
+  let defsStr = '';
+  let filterAttr = '';
+  if (t.shadow){
+    const fid = 'txtShadow';
+    const off = t.shadowOffset * (t.scale||1) * 0.7;
+    defsStr = `<filter id="${fid}" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="${off.toFixed(2)}" dy="${off.toFixed(2)}" stdDeviation="${(t.shadowBlur*(t.scale||1)*0.5).toFixed(2)}" flood-color="${esc(t.shadowColor)}"/></filter>`;
+    filterAttr = ` filter="url(#${fid})"`;
+  }
+  const strokeAttrs = t.stroke ? ` stroke="${esc(t.strokeColor)}" stroke-width="${(m.fontSizePx*(t.strokeWidthRatio/100)).toFixed(2)}" paint-order="stroke" stroke-linejoin="round"` : '';
+  const weightAttr = t.bold ? ' font-weight="bold"' : '';
+  const styleAttr = t.italic ? ' font-style="italic"' : '';
+  const lines = m.lines.map((line,i)=>{
+    const ly = startY + i*m.lineHeight + m.fontSizePx*0.35; // компенсация baseline (middle -> alphabetic)
+    return `<text x="0" y="${ly.toFixed(2)}" text-anchor="${anchor}" font-family="${esc(t.fontFamily)}" font-size="${m.fontSizePx.toFixed(2)}"${weightAttr}${styleAttr} fill="${esc(t.color)}"${strokeAttrs}${filterAttr}>${esc(line)}</text>`;
+  }).join('');
+  const bodyStr = `<g transform="translate(${cx.toFixed(2)} ${cy.toFixed(2)}) rotate(${(t.rotation||0).toFixed(2)})">${lines}</g>`;
+  return { defsStr, bodyStr };
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=> URL.revokeObjectURL(url), 4000);
+}
+
+function filenameFor(ext, scene){
+  const preset = findPreset(config.format.presetId).id;
+  const dpi = resolveFormat(config.format).dpi;
+  return `pattern-${preset}-${Math.round(dpi)}dpi-${scene.canvasW}x${scene.canvasH}.${ext}`;
+}
+
+async function exportPng(){
+  const scene = buildScene(config, icons);
+  if (!icons.some(i=>i.enabled)){ toast('Нет включённых иконок — нечего экспортировать.', 'err'); return; }
+  const err = checkCanvasLimits(scene.canvasW, scene.canvasH);
+  if (err){ toast(err, 'err'); return; }
+  if (icons.some(i=> i.enabled && i.tainted)){
+    toast('Среди включённых иконок есть загруженная с ограничением CORS — PNG/JPEG экспорт заблокирован браузером. Отключите её или используйте SVG-экспорт.', 'err');
+    return;
+  }
+  toast('Готовим PNG…');
+  const canvas = document.createElement('canvas');
+  canvas.width = scene.canvasW; canvas.height = scene.canvasH;
+  const ctx = canvas.getContext('2d');
+  try{
+    await renderScene(ctx, scene, config, icons, 1);
+    canvas.toBlob((blob)=>{
+      if (!blob){ toast('Не удалось создать PNG.', 'err'); return; }
+      downloadBlob(blob, filenameFor('png', scene));
+      toast('PNG сохранён', 'ok');
+    }, 'image/png');
+  }catch(e){ toast('Ошибка экспорта PNG: ' + e.message, 'err'); }
+}
+
+async function exportJpeg(){
+  const scene = buildScene(config, icons);
+  if (!icons.some(i=>i.enabled)){ toast('Нет включённых иконок — нечего экспортировать.', 'err'); return; }
+  const err = checkCanvasLimits(scene.canvasW, scene.canvasH);
+  if (err){ toast(err, 'err'); return; }
+  if (icons.some(i=> i.enabled && i.tainted)){
+    toast('Среди включённых иконок есть загруженная с ограничением CORS — экспорт заблокирован. Используйте SVG-экспорт.', 'err');
+    return;
+  }
+  toast('Готовим JPEG…');
+  const canvas = document.createElement('canvas');
+  canvas.width = scene.canvasW; canvas.height = scene.canvasH;
+  const ctx = canvas.getContext('2d');
+  try{
+    await renderScene(ctx, scene, config, icons, 1, { forceOpaqueBg:true });
+    canvas.toBlob((blob)=>{
+      if (!blob){ toast('Не удалось создать JPEG.', 'err'); return; }
+      downloadBlob(blob, filenameFor('jpg', scene));
+      toast('JPEG сохранён', 'ok');
+    }, 'image/jpeg', config.jpgQuality);
+  }catch(e){ toast('Ошибка экспорта JPEG: ' + e.message, 'err'); }
+}
+
+function exportSvg(){
+  const scene = buildScene(config, icons);
+  if (!icons.some(i=>i.enabled)){ toast('Нет включённых иконок — нечего экспортировать.', 'err'); return; }
+  const { svg, skippedCount } = serializeSvg(scene, config, icons);
+  downloadBlob(new Blob([svg], {type:'image/svg+xml'}), filenameFor('svg', scene));
+  toast(skippedCount ? `SVG сохранён, но ${skippedCount} иконка(и) с CORS-ограничением пропущены.` : 'SVG сохранён', skippedCount?'warn':'ok');
+}
+
+/* ============================== UI: ИКОНКИ ============================== */
+function onIconsChanged(){
+  renderIconGrid();
+  renderBgIconSelect();
+  scheduleRender();
+  persistDebounced();
+}
+
+function iconThumbHtml(icon){
+  if (icon.kind === 'emoji') return `<span>${icon.ch}</span>`;
+  if (icon.kind === 'svg') return `<img alt="" src="data:image/svg+xml;utf8,${encodeURIComponent(icon.svgText)}">`;
+  return `<img alt="" src="${icon.img.src}">`;
+}
+
+function renderIconGrid(){
+  const grid = $('#iconGrid');
+  grid.innerHTML = '';
+  if (!icons.length){
+    $('#iconHint').textContent = 'Список пуст. Загрузите файлы, вставьте ссылку или возьмите иконку из встроенного набора выше.';
+  } else {
+    $('#iconHint').textContent = `Иконок: ${icons.length}, включено: ${icons.filter(i=>i.enabled).length}. Клик — вкл/выкл, ✕ — удалить.`;
+  }
+  icons.forEach(icon=>{
+    const cell = document.createElement('div');
+    cell.className = 'icon-cell' + (icon.kind==='emoji'?' emoji':'') + (icon.enabled?'':' off') + (icon.tainted?' tainted':'');
+    cell.title = icon.name + (icon.tainted ? ' (CORS-ограничение: PNG/JPEG экспорт недоступен для этой иконки)' : '');
+    cell.innerHTML = iconThumbHtml(icon) + `<span class="del" data-del="${icon.id}">✕</span>` + (icon.tainted?'<span class="badge">CORS</span>':'');
+    cell.addEventListener('click', (e)=>{
+      if (e.target.closest('[data-del]')) return;
+      icon.enabled = !icon.enabled;
+      onIconsChanged();
+    });
+    cell.querySelector('[data-del]').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      removeIcon(icon.id);
+    });
+    grid.appendChild(cell);
+  });
+}
+
+function renderBgIconSelect(){
+  const sel = $('#bgIcon');
+  const prev = config.layout.bgIconId;
+  sel.innerHTML = '';
+  icons.forEach(icon=>{
+    const opt = document.createElement('option');
+    opt.value = icon.id; opt.textContent = icon.name;
+    sel.appendChild(opt);
+  });
+  if (prev && icons.some(i=>i.id===prev)) sel.value = prev;
+  else if (icons.length){ config.layout.bgIconId = icons[0].id; sel.value = icons[0].id; }
+}
+
+/* ============================== UI: ПАЛИТРА ============================== */
+function renderPalette(){
+  const wrap = $('#palette');
+  wrap.innerHTML = '';
+  config.color.palette.forEach((col, idx)=>{
+    const sw = document.createElement('div');
+    sw.className = 'sw';
+    sw.innerHTML = `<div style="width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:${col}"></div><div class="x" data-idx="${idx}">✕</div>`;
+    sw.querySelector('.x').addEventListener('click', ()=>{
+      config.color.palette.splice(idx,1);
+      renderPalette(); scheduleRender(); persistDebounced();
+    });
+    wrap.appendChild(sw);
+  });
+}
+
+/* ============================== UI: ФОРМАТ ============================== */
+function populatePresets(){
+  const sel = $('#presetSel');
+  sel.innerHTML = '';
+  PRESETS.forEach(p=>{
+    const opt = document.createElement('option');
+    opt.value = p.id; opt.textContent = p.name;
+    sel.appendChild(opt);
+  });
+  sel.value = config.format.presetId;
+}
+
+function syncFormatUI(){
+  const preset = findPreset(config.format.presetId);
+  $('#customDims').style.display = preset.kind === 'custom' ? 'flex' : 'none';
+  $('#dpiRow').style.display = (preset.kind === 'mm' || (preset.kind==='custom' && config.format.customUnit==='mm')) ? 'flex' : 'none';
+  $('#cW').value = config.format.customW; $('#cH').value = config.format.customH; $('#cUnit').value = config.format.customUnit;
+  $('#dpi').value = config.format.dpi; $('#dpiNum').value = config.format.dpi;
+  $('#bleed').value = config.format.bleedMm; $('#bleedNum').value = config.format.bleedMm;
+  const fmt = resolveFormat(config.format);
+  $('#fmtHint').textContent = `Итог: ${fmt.wPx}×${fmt.hPx} px (${fmt.wMm.toFixed(1)}×${fmt.hMm.toFixed(1)} мм)`;
+}
+
+/* ============================== ПРИВЯЗКА ЭЛЕМЕНТОВ ============================== */
+// bindRange: связывает пару <input range> + <input number> с полем в объекте config (по пути) и колбэком.
+function bindPair(rangeSel, numSel, getSet, isFloat){
+  const r = $(rangeSel), n = $(numSel);
+  const parse = v => isFloat ? parseFloat(v) : Math.round(parseFloat(v));
+  function apply(v){
+    v = parse(v);
+    if (Number.isNaN(v)) return;
+    getSet(v);
+    r.value = v; n.value = v;
+    onConfigChanged();
+  }
+  r.addEventListener('input', ()=> apply(r.value));
+  n.addEventListener('input', ()=> apply(n.value));
+  const init = getSet();
+  r.value = init; n.value = init;
+}
+
+function bindSimple(sel, getSet, kind){
+  const el = $(sel);
+  const ev = (kind==='check') ? 'change' : (kind==='color'||kind==='select') ? 'input' : 'input';
+  el.addEventListener(ev, ()=>{
+    let v = kind==='check' ? el.checked : el.value;
+    getSet(v);
+    onConfigChanged();
+  });
+  const init = getSet();
+  if (kind==='check') el.checked = init; else el.value = init;
+}
+
+function onConfigChanged(){
+  syncLayoutVisibility();
+  syncRotationVisibility();
+  syncColorVisibility();
+  scheduleRender();
+  persistDebounced();
+}
+
+function syncLayoutVisibility(){
+  $$('.lay-grp').forEach(g=>g.style.display='none');
+  const scheme = config.layout.scheme;
+  const map = { grid:'grid', checker:'grid', brick:'brick', scatter:'scatter', fillscatter:'fillscatter' };
+  const id = '#grp-' + (map[scheme]||'grid');
+  const el = $(id); if (el) el.style.display = 'block';
+  if (scheme === 'fillscatter'){ const s = $('#grp-scatter'); if (s) s.style.display='block'; }
+}
+function syncRotationVisibility(){
+  $('#rotRangeRow').style.display = config.rotation.mode === 'random' ? 'flex' : 'none';
+}
+function syncColorVisibility(){
+  $('#bgColorRow').style.display = config.color.bgTransparent ? 'none' : 'flex';
+  $('#jpgQualityRow').style.display = 'flex';
+}
+
+function setupBindings(){
+  // --- Формат ---
+  $('#presetSel').addEventListener('change', ()=>{ config.format.presetId = $('#presetSel').value; syncFormatUI(); onConfigChanged(); });
+  $('#orientBtn').addEventListener('click', ()=>{
+    config.format.orientation = config.format.orientation==='portrait' ? 'landscape' : 'portrait';
+    syncFormatUI(); onConfigChanged();
+  });
+  ['cW','cH'].forEach(id=>{
+    $('#'+id).addEventListener('input', ()=>{
+      config.format.customW = parseFloat($('#cW').value)||1;
+      config.format.customH = parseFloat($('#cH').value)||1;
+      syncFormatUI(); onConfigChanged();
+    });
+  });
+  $('#cUnit').addEventListener('change', ()=>{ config.format.customUnit = $('#cUnit').value; syncFormatUI(); onConfigChanged(); });
+  bindPair('#dpi','#dpiNum', v=>{ if(v!==undefined) config.format.dpi=v; return config.format.dpi; });
+  $('#dpi').addEventListener('input', syncFormatUI); $('#dpiNum').addEventListener('input', syncFormatUI);
+  bindPair('#bleed','#bleedNum', v=>{ if(v!==undefined) config.format.bleedMm=v; return config.format.bleedMm; }, true);
+  $('#bleed').addEventListener('input', syncFormatUI); $('#bleedNum').addEventListener('input', syncFormatUI);
+
+  // --- Иконки ---
+  $('#btnUpload').addEventListener('click', ()=> $('#fileInput').click());
+  $('#fileInput').addEventListener('change', (e)=>{ handleFiles(e.target.files); e.target.value=''; });
+  $('#btnUrlAdd').addEventListener('click', ()=>{
+    const url = $('#urlInput').value.trim();
+    if (!url) return;
+    addIconFromUrl(url, $('#useProxy').checked, $('#proxyUrl').value);
+    $('#urlInput').value='';
+  });
+  $('#useProxy').addEventListener('change', ()=>{ $('#proxyRow').style.display = $('#useProxy').checked?'flex':'none'; });
+  $('#btnEmojiAdd').addEventListener('click', ()=>{
+    const str = $('#emojiInput').value;
+    const chars = Array.from(str).filter(c=>c.trim());
+    chars.forEach(c=> addEmojiIcon(c));
+    $('#emojiInput').value='';
+  });
+  bindSimple('#recolor', v=>{ if(v!==undefined) config.color.recolor=v; return config.color.recolor; }, 'check');
+
+  // --- Раскладка ---
+  bindSimple('#layout', v=>{ if(v!==undefined) config.layout.scheme=v; return config.layout.scheme; }, 'select');
+  bindPair('#stepX','#stepXNum', v=>{ if(v!==undefined) config.layout.stepX=v; return config.layout.stepX; });
+  bindPair('#stepY','#stepYNum', v=>{ if(v!==undefined) config.layout.stepY=v; return config.layout.stepY; });
+  bindSimple('#linkStep', v=>{ if(v!==undefined) config.layout.linkStep=v; return config.layout.linkStep; }, 'check');
+  bindPair('#brickOffset','#brickOffsetNum', v=>{ if(v!==undefined) config.layout.brickOffset=v; return config.layout.brickOffset; }, true);
+  bindSimple('#brickCols', v=>{ if(v!==undefined) config.layout.brickCols=v; return config.layout.brickCols; }, 'check');
+  bindPair('#density','#densityNum', v=>{ if(v!==undefined) config.layout.density=v; return config.layout.density; });
+  bindPair('#scaleMin','#scaleMinNum', v=>{ if(v!==undefined) config.layout.scaleMin=v; return config.layout.scaleMin; });
+  bindPair('#scaleMax','#scaleMaxNum', v=>{ if(v!==undefined) config.layout.scaleMax=v; return config.layout.scaleMax; });
+  bindPair('#minDist','#minDistNum', v=>{ if(v!==undefined) config.layout.minDist=v; return config.layout.minDist; });
+  bindSimple('#bgIcon', v=>{ if(v!==undefined) config.layout.bgIconId=v; return config.layout.bgIconId; }, 'select');
+  bindSimple('#bgScheme', v=>{ if(v!==undefined) config.layout.bgScheme=v; return config.layout.bgScheme; }, 'select');
+  bindPair('#bgStep','#bgStepNum', v=>{ if(v!==undefined) config.layout.bgStep=v; return config.layout.bgStep; });
+  bindPair('#bgOpacity','#bgOpacityNum', v=>{ if(v!==undefined) config.layout.bgOpacity=v; return config.layout.bgOpacity; }, true);
+  bindSimple('#order', v=>{ if(v!==undefined) config.layout.order=v; return config.layout.order; }, 'select');
+  bindPair('#jitterPos','#jitterPosNum', v=>{ if(v!==undefined) config.layout.jitterPos=v; return config.layout.jitterPos; });
+  bindPair('#jitterScale','#jitterScaleNum', v=>{ if(v!==undefined) config.layout.jitterScale=v; return config.layout.jitterScale; });
+  bindPair('#jitterAlpha','#jitterAlphaNum', v=>{ if(v!==undefined) config.layout.jitterAlpha=v; return config.layout.jitterAlpha; }, true);
+  bindPair('#iconSize','#iconSizeNum', v=>{ if(v!==undefined) config.layout.iconSize=v; return config.layout.iconSize; });
+
+  // --- Повороты ---
+  bindSimple('#rotMode', v=>{ if(v!==undefined) config.rotation.mode=v; return config.rotation.mode; }, 'select');
+  bindPair('#rotAngle','#rotAngleNum', v=>{ if(v!==undefined) config.rotation.angle=v; return config.rotation.angle; });
+  bindPair('#rotRange','#rotRangeNum', v=>{ if(v!==undefined) config.rotation.range=v; return config.rotation.range; });
+  bindPair('#rotSnap','#rotSnapNum', v=>{ if(v!==undefined) config.rotation.snap=v; return config.rotation.snap; });
+  bindPair('#sceneRot','#sceneRotNum', v=>{ if(v!==undefined) config.rotation.sceneRot=v; return config.rotation.sceneRot; });
+
+  // --- Цвет ---
+  bindSimple('#bgTransparent', v=>{ if(v!==undefined) config.color.bgTransparent=v; return config.color.bgTransparent; }, 'check');
+  bindSimple('#bgColor', v=>{ if(v!==undefined) config.color.bgColor=v; return config.color.bgColor; }, 'color');
+  bindPair('#iconAlpha','#iconAlphaNum', v=>{ if(v!==undefined) config.color.iconAlpha=v; return config.color.iconAlpha; }, true);
+  $('#paletteAdd').addEventListener('input', ()=>{
+    config.color.palette.push($('#paletteAdd').value);
+    renderPalette(); onConfigChanged();
+  });
+
+  // --- Текст ---
+  bindSimple('#textEnabled', v=>{ if(v!==undefined) config.text.enabled=v; return config.text.enabled; }, 'check');
+  $('#textContent').value = config.text.content;
+  $('#textContent').addEventListener('input', ()=>{ config.text.content = $('#textContent').value; onConfigChanged(); });
+  bindSimple('#textFont', v=>{ if(v!==undefined) config.text.fontFamily=v; return config.text.fontFamily; }, 'select');
+  bindSimple('#textBold', v=>{ if(v!==undefined) config.text.bold=v; return config.text.bold; }, 'check');
+  bindSimple('#textItalic', v=>{ if(v!==undefined) config.text.italic=v; return config.text.italic; }, 'check');
+  bindSimple('#textAlign', v=>{ if(v!==undefined) config.text.align=v; return config.text.align; }, 'select');
+  bindPair('#textSize','#textSizeNum', v=>{ if(v!==undefined) config.text.sizeRatio=v; return config.text.sizeRatio; }, true);
+  bindSimple('#textColor', v=>{ if(v!==undefined) config.text.color=v; return config.text.color; }, 'color');
+  bindSimple('#textStroke', v=>{ if(v!==undefined) config.text.stroke=v; return config.text.stroke; }, 'check');
+  bindSimple('#textStrokeColor', v=>{ if(v!==undefined) config.text.strokeColor=v; return config.text.strokeColor; }, 'color');
+  bindPair('#textStrokeWidth','#textStrokeWidthNum', v=>{ if(v!==undefined) config.text.strokeWidthRatio=v; return config.text.strokeWidthRatio; }, true);
+  bindSimple('#textShadow', v=>{ if(v!==undefined) config.text.shadow=v; return config.text.shadow; }, 'check');
+  bindSimple('#textShadowColor', v=>{ if(v!==undefined) config.text.shadowColor=v; return config.text.shadowColor; }, 'color');
+  bindPair('#textShadowBlur','#textShadowBlurNum', v=>{ if(v!==undefined) config.text.shadowBlur=v; return config.text.shadowBlur; });
+  bindPair('#textShadowOffset','#textShadowOffsetNum', v=>{ if(v!==undefined) config.text.shadowOffset=v; return config.text.shadowOffset; });
+  bindPair('#textRotation','#textRotationNum', v=>{ if(v!==undefined) config.text.rotation=v; return config.text.rotation; });
+  bindPair('#textScale','#textScaleNum', v=>{ if(v!==undefined) config.text.scale=v; return config.text.scale; }, true);
+  $('#btnTextCenter').addEventListener('click', ()=>{
+    config.text.xFrac = 0.5; config.text.yFrac = 0.5; config.text.rotation = 0; config.text.scale = 1;
+    $('#textRotation').value = $('#textRotationNum').value = 0;
+    $('#textScale').value = $('#textScaleNum').value = 1;
+    onConfigChanged();
+  });
+  setupTextDrag();
+
+  // --- Экспорт / настройки ---
+  $('#seed').value = config.seed;
+  $('#seed').addEventListener('input', ()=>{ config.seed = parseInt($('#seed').value)||1; onConfigChanged(); });
+  $('#btnShuffle').addEventListener('click', ()=>{ config.seed = Math.floor(Math.random()*1e9); $('#seed').value = config.seed; onConfigChanged(); });
+  bindPair('#jpgQuality','#jpgQualityNum', v=>{ if(v!==undefined) config.jpgQuality=v; return config.jpgQuality; }, true);
+
+  $('#btnExportPng').addEventListener('click', exportPng);
+  $('#btnExportJpg').addEventListener('click', exportJpeg);
+  $('#btnExportSvg').addEventListener('click', exportSvg);
+
+  $('#btnSaveJson').addEventListener('click', saveConfigJson);
+  $('#btnLoadJson').addEventListener('click', ()=> $('#jsonInput').click());
+  $('#jsonInput').addEventListener('change', (e)=>{ if(e.target.files[0]) loadConfigJsonFile(e.target.files[0]); e.target.value=''; });
+  $('#btnPermalink').addEventListener('click', copyPermalink);
+  $('#btnResetAll').addEventListener('click', resetAllToDefaults);
+}
+
+/* ============================== ПЕРСИСТЕНТНОСТЬ ============================== */
+const LS_KEY = 'ppg.config.v1';
+const LS_ICONS_KEY = 'ppg.icons.v1';
+let persistTimer = null;
+function persistDebounced(){
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(()=>{
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(config)); }catch(e){}
+    try{ localStorage.setItem(LS_ICONS_KEY, JSON.stringify(icons.map(i=> iconToJson(i, true)))); }
+    catch(e){ /* напр. переполнение квоты localStorage — автосохранение иконок молча пропускаем */ }
+  }, 400);
+}
+// Возвращает true, если что-то реально было восстановлено (конфиг и/или иконки).
+async function loadPersisted(){
+  let found = false;
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw){ mergeConfig(JSON.parse(raw)); found = true; }
+  }catch(e){}
+  try{
+    const rawIcons = localStorage.getItem(LS_ICONS_KEY);
+    if (rawIcons){
+      const arr = JSON.parse(rawIcons);
+      if (Array.isArray(arr) && arr.length){ await restoreIconsFromJson(arr); found = true; }
+    }
+  }catch(e){}
+  return found;
+}
+function mergeConfig(partial){
+  config.format = Object.assign({}, DEFAULT_CONFIG.format, config.format, partial.format);
+  config.layout = Object.assign({}, DEFAULT_CONFIG.layout, config.layout, partial.layout);
+  config.rotation = Object.assign({}, DEFAULT_CONFIG.rotation, config.rotation, partial.rotation);
+  config.color = Object.assign({}, DEFAULT_CONFIG.color, config.color, partial.color);
+  config.text = Object.assign({}, DEFAULT_CONFIG.text, config.text, partial.text);
+  if (partial.seed !== undefined) config.seed = partial.seed;
+  if (partial.jpgQuality !== undefined) config.jpgQuality = partial.jpgQuality;
+}
+
+function iconToJson(icon, embed){
+  const base = { id:icon.id, kind:icon.kind, name:icon.name, enabled:icon.enabled };
+  if (icon.kind === 'svg'){ base.svgText = icon.svgText; return base; } // SVG всегда компактный текст — встраиваем всегда
+  if (icon.kind === 'emoji'){ base.ch = icon.ch; return base; }
+  if (icon.kind === 'raster'){
+    if (icon.sourceUrl && !embed){ base.sourceUrl = icon.sourceUrl; return base; }
+    try{
+      const c = document.createElement('canvas');
+      c.width = icon.naturalW; c.height = icon.naturalH;
+      c.getContext('2d').drawImage(icon.img, 0, 0);
+      base.dataUrl = c.toDataURL('image/png');
+    }catch(e){ base.skipped = true; }
+    return base;
+  }
+  return base;
+}
+
+function resetAllToDefaults(){
+  const ok = confirm('Сбросить все настройки к значениям по умолчанию?\n\nБудут удалены все иконки (включая загруженные) и очищено автосохранение в этом браузере. Отменить нельзя.');
+  if (!ok) return;
+
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  try{ localStorage.removeItem(LS_ICONS_KEY); }catch(e){}
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+
+  config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  icons.forEach(i=>{ if (i.kind==='raster' && i.img && i.img.src && i.img.src.startsWith('blob:')) URL.revokeObjectURL(i.img.src); });
+  icons = [];
+  addBuiltinIcon('heart');
+  addBuiltinIcon('star');
+
+  refreshAllUiFromConfig();
+  onIconsChanged();
+  onConfigChanged();
+  toast('Настройки сброшены к значениям по умолчанию', 'ok');
+}
+
+function saveConfigJson(){
+  const embed = $('#embedIcons').checked;
+  const data = {
+    version: 1,
+    config,
+    icons: icons.map(i=> iconToJson(i, embed)),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type:'application/json' });
+  downloadBlob(blob, 'pattern-settings.json');
+  toast('Настройки сохранены в JSON', 'ok');
+}
+
+async function loadConfigJsonFile(file){
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    applyLoadedData(data);
+    toast('Настройки загружены', 'ok');
+  }catch(e){ toast('Не удалось прочитать файл настроек: ' + e.message, 'err'); }
+}
+
+// Общая логика восстановления списка иконок из сериализованного JSON
+// (используется и для localStorage-автосохранения, и для загрузки JSON-файла, и для permalink).
+async function restoreIconsFromJson(arr){
+  icons = [];
+  for (const ij of arr){
+    try{
+      if (ij.kind === 'svg' && ij.svgText) addSvgIcon(ij.svgText, ij.name, {});
+      else if (ij.kind === 'emoji' && ij.ch) addEmojiIcon(ij.ch);
+      else if (ij.kind === 'raster' && ij.dataUrl) await addRasterIcon(ij.dataUrl, ij.name, {});
+      else if (ij.kind === 'raster' && ij.sourceUrl) await addIconFromUrl(ij.sourceUrl, false, '');
+      const last = icons[icons.length-1];
+      if (last) last.enabled = ij.enabled !== false;
+    }catch(e){ /* битая/недоступная иконка — пропускаем, остальные восстанавливаем */ }
+  }
+}
+
+async function applyLoadedData(data){
+  if (data.config) mergeConfig(data.config);
+  if (Array.isArray(data.icons)) await restoreIconsFromJson(data.icons);
+  refreshAllUiFromConfig();
+  onIconsChanged();
+  onConfigChanged();
+}
+
+function refreshAllUiFromConfig(){
+  populatePresets();
+  syncFormatUI();
+  $('#layout').value = config.layout.scheme;
+  $('#stepX').value = $('#stepXNum').value = config.layout.stepX;
+  $('#stepY').value = $('#stepYNum').value = config.layout.stepY;
+  $('#linkStep').checked = config.layout.linkStep;
+  $('#brickOffset').value = $('#brickOffsetNum').value = config.layout.brickOffset;
+  $('#brickCols').checked = config.layout.brickCols;
+  $('#density').value = $('#densityNum').value = config.layout.density;
+  $('#scaleMin').value = $('#scaleMinNum').value = config.layout.scaleMin;
+  $('#scaleMax').value = $('#scaleMaxNum').value = config.layout.scaleMax;
+  $('#minDist').value = $('#minDistNum').value = config.layout.minDist;
+  $('#bgScheme').value = config.layout.bgScheme;
+  $('#bgStep').value = $('#bgStepNum').value = config.layout.bgStep;
+  $('#bgOpacity').value = $('#bgOpacityNum').value = config.layout.bgOpacity;
+  $('#order').value = config.layout.order;
+  $('#jitterPos').value = $('#jitterPosNum').value = config.layout.jitterPos;
+  $('#jitterScale').value = $('#jitterScaleNum').value = config.layout.jitterScale;
+  $('#jitterAlpha').value = $('#jitterAlphaNum').value = config.layout.jitterAlpha;
+  $('#iconSize').value = $('#iconSizeNum').value = config.layout.iconSize;
+  $('#rotMode').value = config.rotation.mode;
+  $('#rotAngle').value = $('#rotAngleNum').value = config.rotation.angle;
+  $('#rotRange').value = $('#rotRangeNum').value = config.rotation.range;
+  $('#rotSnap').value = $('#rotSnapNum').value = config.rotation.snap;
+  $('#sceneRot').value = $('#sceneRotNum').value = config.rotation.sceneRot;
+  $('#bgTransparent').checked = config.color.bgTransparent;
+  $('#bgColor').value = config.color.bgColor;
+  $('#recolor').checked = config.color.recolor;
+  $('#iconAlpha').value = $('#iconAlphaNum').value = config.color.iconAlpha;
+  $('#jpgQuality').value = $('#jpgQualityNum').value = config.jpgQuality;
+  $('#seed').value = config.seed;
+  renderPalette();
+  renderBgIconSelect();
+  if (config.layout.bgIconId) $('#bgIcon').value = config.layout.bgIconId;
+  syncLayoutVisibility(); syncRotationVisibility(); syncColorVisibility();
+
+  $('#textEnabled').checked = config.text.enabled;
+  $('#textContent').value = config.text.content;
+  $('#textFont').value = config.text.fontFamily;
+  $('#textBold').checked = config.text.bold;
+  $('#textItalic').checked = config.text.italic;
+  $('#textAlign').value = config.text.align;
+  $('#textSize').value = $('#textSizeNum').value = config.text.sizeRatio;
+  $('#textColor').value = config.text.color;
+  $('#textStroke').checked = config.text.stroke;
+  $('#textStrokeColor').value = config.text.strokeColor;
+  $('#textStrokeWidth').value = $('#textStrokeWidthNum').value = config.text.strokeWidthRatio;
+  $('#textShadow').checked = config.text.shadow;
+  $('#textShadowColor').value = config.text.shadowColor;
+  $('#textShadowBlur').value = $('#textShadowBlurNum').value = config.text.shadowBlur;
+  $('#textShadowOffset').value = $('#textShadowOffsetNum').value = config.text.shadowOffset;
+  $('#textRotation').value = $('#textRotationNum').value = config.text.rotation;
+  $('#textScale').value = $('#textScaleNum').value = config.text.scale;
+}
+
+/* ============================== PERMALINK ============================== */
+function copyPermalink(){
+  try{
+    const data = { config, icons: icons.filter(i=> i.kind!=='raster' || i.sourceUrl).map(i=> iconToJson(i,false)) };
+    const json = JSON.stringify(data);
+    const packed = btoa(unescape(encodeURIComponent(json)));
+    const url = location.origin + location.pathname + '#s=' + packed;
+    navigator.clipboard && navigator.clipboard.writeText(url).then(()=>{
+      toast('Ссылка скопирована в буфер обмена', 'ok');
+    }, ()=>{ prompt('Скопируйте ссылку:', url); });
+    if (!navigator.clipboard) prompt('Скопируйте ссылку:', url);
+    const raster = icons.filter(i=>i.kind==='raster' && !i.sourceUrl);
+    if (raster.length) toast(`Ссылка скопирована. Внимание: ${raster.length} локально загруженных растровых иконок не входят в ссылку (нет URL) — используйте JSON-файл со встраиванием.`, 'warn');
+  }catch(e){ toast('Не удалось создать ссылку: '+e.message, 'err'); }
+}
+
+async function loadFromHash(){
+  const h = location.hash;
+  if (!h.startsWith('#s=')) return false;
+  try{
+    const packed = h.slice(3);
+    const json = decodeURIComponent(escape(atob(packed)));
+    const data = JSON.parse(json);
+    await applyLoadedData(data);
+    return true;
+  }catch(e){ toast('Не удалось разобрать ссылку с настройками', 'err'); return false; }
+}
+
+/* ============================== DRAG & DROP / PASTE ============================== */
+function setupDragDrop(){
+  let dragCounter = 0;
+  window.addEventListener('dragenter', (e)=>{ e.preventDefault(); dragCounter++; $('#drop').classList.add('on'); });
+  window.addEventListener('dragover', (e)=> e.preventDefault());
+  window.addEventListener('dragleave', (e)=>{ dragCounter--; if (dragCounter<=0){ dragCounter=0; $('#drop').classList.remove('on'); } });
+  window.addEventListener('drop', (e)=>{
+    e.preventDefault(); dragCounter=0; $('#drop').classList.remove('on');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+  });
+  window.addEventListener('paste', (e)=>{
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    const files = [];
+    for (const it of items){ if (it.kind==='file'){ const f = it.getAsFile(); if (f) files.push(f); } }
+    if (files.length) handleFiles(files);
+  });
+}
+
+/* ============================== ИНИЦИАЛИЗАЦИЯ ============================== */
+async function init(){
+  populatePresets();
+  renderBuiltinPalette();
+  setupBindings();
+  setupDragDrop();
+
+  const fromHash = await loadFromHash();
+  if (!fromHash) await loadPersisted();
+
+  refreshAllUiFromConfig();
+  onIconsChanged();
+  onConfigChanged();
+
+  if (!icons.length){
+    addBuiltinIcon('heart');
+    addBuiltinIcon('star');
+    toast('Добавлены пара иконок для примера — загрузите свои через панель слева.', 'ok');
+  }
+}
+
+window.addEventListener('resize', scheduleRender);
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
