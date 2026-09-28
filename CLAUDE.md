@@ -98,6 +98,10 @@ Three independent mechanisms, all going through the same serialization helpers:
 
 All three restore icons through the single shared `restoreIconsFromJson()` — if you add a new icon `kind` or a new persisted field, update that function (and `iconToJson`) rather than duplicating restore logic per mechanism. `resetAllToDefaults()` is the inverse: clears both localStorage keys, clears the hash, resets `config` to `DEFAULT_CONFIG`, and reinstates the two default built-in icons.
 
+## Docs
+
+`README.md` is English, `README.ru.md` is Russian; each links to the other. They're kept as full independent translations (not one canonical + a stub) — if you change a user-facing feature, update both.
+
 ## Known limitations (already documented in README, don't re-litigate as bugs)
 
 - SVG recoloring only works via CSS inheritance (`fill`/`stroke` not already hardcoded in the source).

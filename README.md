@@ -1,72 +1,86 @@
 # Print Pattern Generator
 
-Браузерный генератор бесшовных паттернов из **своих иконок** (SVG/PNG, в т.ч. подобранных
-на Flaticon, или эмодзи) — для печати (A4, конверты) и экрана (iPhone, десктоп, соцсети).
-Работает полностью в браузере, без backend, без сборки: один файл `index.html`.
+*[Читать на русском](README.ru.md)*
 
-![Скриншот: сетка из ярких эмодзи со случайным поворотом/размером и текстовым слоем "PATTERN MAKER"](docs/screenshot.png)
+A browser-based generator for seamless patterns made from **your own icons**
+(SVG/PNG — e.g. picked from Flaticon — or emoji) — for print (A4, envelopes) and
+screen (iPhone, desktop, social media). Runs entirely in the browser, no
+backend, no build step: a single `index.html` file.
 
-## Запуск
+![Screenshot: a grid of bright emoji with random rotation/scale and a "PATTERN MAKER" text overlay](docs/screenshot.png)
 
-Просто откройте `index.html` в браузере — двойным кликом (`file://`) или через
-любой статический хостинг / `python3 -m http.server`.
+## Running it
 
-Единственное ограничение `file://`: загрузка иконок **по URL** может быть заблокирована
-политикой браузера при работе с локального файла сильнее, чем при обычной раздаче по http(s).
-Если это мешает — откройте страницу через `python3 -m http.server` или залейте на любой
-статический хостинг (GitHub Pages и т.п.).
+Just open `index.html` in a browser — double-click it (`file://`) or serve it
+through any static host / `python3 -m http.server`.
 
-## Возможности
+The only `file://` limitation: loading icons **by URL** can be blocked more
+aggressively by the browser's security policy when running from a local file
+than when served over http(s). If that gets in the way, open the page through
+`python3 -m http.server` or deploy it to any static host (GitHub Pages, etc.).
 
-- **Форматы**: iPhone, Desktop (FHD/QHD), A4/A5 под печать (с DPI и вылетами под обрез),
-  конверты C6/DL, Instagram post/story, произвольный размер в px или мм.
-- **Иконки**: загрузка файлов (drag-and-drop, вставка из буфера, выбор файлов),
-  добавление по прямой ссылке (например, с CDN Flaticon), опциональный CORS-прокси
-  для проблемных ссылок, встроенный набор из ~24 SVG-иконок, эмодзи-фолбэк (для наброска,
-  не для печати — качество зависит от шрифта ОС).
-- **Схемы раскладки**: сетка, шахматка, кирпичная кладка, случайная россыпь,
-  заливка фона одной иконкой + россыпь поверх. Джиттер позиции/размера/прозрачности,
-  порядок чередования иконок (по порядку / случайно / по рядам / по колонкам).
-- **Повороты**: поворот каждой иконки (фиксированный / через одну / случайный / по рядам,
-  с привязкой к шагу) и независимый поворот всего паттерна целиком.
-- **Цвет**: перекраска SVG-иконок в палитру, цвет/прозрачность фона, прозрачность иконок.
-- **Текст поверх паттерна**: как в мем-генераторах — текст, шрифт, размер, жирный/курсив,
-  выравнивание, цвет, обводка (цвет+толщина), тень (цвет+размытие+смещение). Блок текста
-  перетаскивается прямо в превью: тяните за сам текст — перемещение, за точку сверху —
-  поворот, за уголок снизу справа — масштаб. В списке шрифтов есть отдельная группа
-  «🎪 Цирк / карнавал»: Lobster, Lobster Two, Luckiest Guy, Bangers, Alfa Slab One, Rye,
-  Bungee, Bungee Inline, Titan One, Chewy, Fredoka — грузятся с Google Fonts (нужен интернет
-  при первом использовании; страница при этом продолжает работать офлайн для всего
-  остального). **Важно**: почти все эти яркие плакатные шрифты покрывают только латиницу —
-  для кириллического текста браузер молча откатится на обычный шрифт того же пункта списка
-  (`cursive`/`serif`/`sans-serif`). Для настоящего эффекта афиши шапито пишите текст
-  латиницей (`SHAPITO`, `CIRCUS`, цифры, восклицательные знаки).
-- **Экспорт**: PNG, JPEG (с настройкой качества) и **SVG** (векторный, без потери качества
-  при печати — иконки встраиваются как `<symbol>`/`<use>`, растровые — как `data:` URI,
-  текст — как настоящий `<text>` с фильтром тени и обводкой).
-- **Сохранение**: автосохранение в `localStorage` (включая иконки), экспорт/импорт настроек
-  в JSON (с опцией встраивания иконок как base64), ссылка-пермалинк со всеми настройками,
-  кнопка «Сбросить всё» — возврат к настройкам по умолчанию с подтверждением.
+## Features
 
-## Иконки с Flaticon
+- **Formats**: iPhone, Desktop (FHD/QHD), A4/A5 for print (with DPI and bleed
+  for trimming), C6/DL envelopes, Instagram post/story, or a custom size in
+  px or mm.
+- **Icons**: file upload (drag-and-drop, paste from clipboard, file picker),
+  adding by direct URL (e.g. from a Flaticon CDN link), an optional CORS
+  proxy for problematic links, a built-in set of ~24 SVG icons, and an emoji
+  fallback (for sketching — not recommended for print, since quality depends
+  on the OS font).
+- **Layout schemes**: grid, checkerboard, brick, random scatter, and a solid
+  background fill + scatter on top. Position/size/opacity jitter, and icon
+  cycling order (sequential / random / by row / by column).
+- **Rotation**: per-icon rotation (fixed / alternating / random / incrementing
+  per row, with optional angle snapping) and an independent rotation of the
+  whole pattern.
+- **Color**: recoloring SVG icons into a palette, background color/opacity,
+  icon opacity.
+- **Text overlay**: meme-generator-style text on top of the pattern — font,
+  size, bold/italic, alignment, color, outline (color + width), shadow
+  (color + blur + offset). The text block is draggable right in the preview:
+  drag the text itself to move it, the handle above it to rotate, the corner
+  handle to scale. The font list has a dedicated "🎪 Circus / carnival" group
+  — Lobster, Lobster Two, Luckiest Guy, Bangers, Alfa Slab One, Rye, Bungee,
+  Bungee Inline, Titan One, Chewy, Fredoka — loaded from Google Fonts
+  (needs internet on first use; the rest of the page keeps working offline).
+  **Note**: almost all of these bold poster fonts only cover Latin glyphs —
+  non-Latin text will silently fall back to the generic font for that list
+  entry (`cursive`/`serif`/`sans-serif`). For the full circus-poster effect,
+  type your text in Latin script.
+- **Export**: PNG, JPEG (with a quality setting), and **SVG** (vector, no
+  quality loss when printed — icons are embedded as `<symbol>`/`<use>`,
+  raster icons as `data:` URIs, text as real `<text>` with an outline and a
+  shadow filter).
+- **Persistence**: autosave to `localStorage` (including icons), JSON
+  export/import of settings (with an option to embed icons as base64), a
+  permalink carrying the full settings, and a "Reset everything" button that
+  restores the defaults (with confirmation).
 
-1. На странице иконки на Flaticon возьмите ссылку на PNG/SVG (обычно доступна через
-   «Copy link» на нужном размере, вида `https://cdn-icons-png.flaticon.com/512/.../....png`).
-2. Вставьте её в поле «Ссылка (URL)» и нажмите «Добавить по ссылке».
-3. Если браузер заблокировал загрузку по CORS — появится понятное сообщение. В этом случае
-   либо скачайте файл иконки на диск и загрузите его через «Загрузить файлы» (самый надёжный
-   способ), либо включите чекбокс «Использовать CORS-прокси» (учтите: ссылка на иконку в этом
-   случае уходит на сторонний прокси-сервис).
+## Icons from Flaticon
 
-## Известные ограничения
+1. On the icon's Flaticon page, grab a link to the PNG/SVG (usually available
+   via "Copy link" at the size you want — something like
+   `https://cdn-icons-png.flaticon.com/512/.../....png`).
+2. Paste it into the "URL" field and click "Add from URL".
+3. If the browser blocked the download over CORS, you'll get a clear message.
+   In that case either download the icon file to disk and add it via
+   "Upload files" (the most reliable option), or enable the "Use CORS proxy"
+   checkbox (note: the icon URL is then sent to a third-party proxy service).
 
-- Иконка, загруженная по URL с ограничением CORS и не помеченная как «tainted», всё равно
-  может заблокировать PNG/JPEG-экспорт браузером (canvas становится «грязным»). В этом случае
-  доступен SVG-экспорт — либо уберите иконку/используйте прокси/файл.
-- Перекраска произвольных загруженных SVG работает через CSS-наследование `fill`: если внутри
-  файла у путей уже стоит явный цвет (не `currentColor` и не «пусто»), перекраска может не
-  подействовать на такие элементы. Встроенный набор иконок перекрашивается всегда.
-- При очень большом количестве элементов (плотная россыпь + большой формат) превью показывает
-  только часть элементов ради отзывчивости интерфейса — в самом экспорте всегда участвуют все.
-- Очень высокий DPI на большом листе может упереться в ограничение браузера на размер canvas —
-  приложение покажет предупреждение и предложит снизить DPI/размер.
+## Known limitations
+
+- An icon loaded by URL under CORS restrictions can still block PNG/JPEG
+  export (the canvas becomes "tainted"), even if it isn't flagged as such
+  up front. In that case SVG export is still available — or remove the icon
+  / use the proxy / upload it as a file instead.
+- Recoloring arbitrary uploaded SVGs works through CSS `fill` inheritance:
+  if the file's paths already hardcode a color (not `currentColor` and not
+  empty), recoloring may not affect them. The built-in icon set always
+  recolors correctly.
+- With very large numbers of elements (dense scatter + a large format), the
+  preview shows only a subset for responsiveness — the actual export always
+  includes everything.
+- Very high DPI on a large sheet can hit the browser's canvas size limit —
+  the app will show a warning and suggest lowering the DPI/size.
